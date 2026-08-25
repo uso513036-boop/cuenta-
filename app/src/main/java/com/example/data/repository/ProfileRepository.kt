@@ -28,6 +28,8 @@ class ProfileRepository(private val profileDao: ProfileDao) {
 
     suspend fun deleteProfileById(id: Int) = profileDao.deleteProfileById(id)
 
+    suspend fun deleteAllProfiles() = profileDao.deleteAllProfiles()
+
     suspend fun updateLastAccessed(id: Int) = profileDao.updateLastAccessed(id)
 
     suspend fun toggleFavorite(id: Int, currentFav: Boolean) = profileDao.updateFavorite(id, !currentFav)

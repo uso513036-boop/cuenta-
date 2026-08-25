@@ -41,6 +41,9 @@ interface ProfileDao {
     @Query("UPDATE profiles SET cookiesSnapshotJson = :cookies WHERE id = :id")
     suspend fun updateCookiesSnapshot(id: Int, cookies: String)
 
+    @Query("DELETE FROM profiles")
+    suspend fun deleteAllProfiles()
+
     @Query("SELECT COUNT(*) FROM profiles")
     fun getProfileCount(): Flow<Int>
 }

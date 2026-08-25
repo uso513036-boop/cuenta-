@@ -52,6 +52,7 @@ fun DashboardScreen(
     val activeProfileId by viewModel.activeProfileId.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var showDeleteAllDialog by remember { mutableStateOf(false) }
     var inspectingProfile by remember { mutableStateOf<ProfileEntity?>(null) }
     var isSearchExpanded by remember { mutableStateOf(false) }
 
@@ -127,6 +128,19 @@ fun DashboardScreen(
 
                         // Right actions
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (allProfiles.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { showDeleteAllDialog = true },
+                                    modifier = Modifier.testTag("dashboard_clear_all_btn")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DeleteSweep,
+                                        contentDescription = "Limpiar Todos los Clones",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+
                             IconButton(
                                 onClick = { isSearchExpanded = !isSearchExpanded },
                                 modifier = Modifier.testTag("dashboard_search_toggle")
@@ -351,30 +365,41 @@ fun DashboardScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(80.dp)
+                                .size(88.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                                .background(MaterialTheme.colorScheme.primaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.LayersClear,
+                                imageVector = Icons.Default.PhoneAndroid,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(40.dp)
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(44.dp)
                             )
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "No se encontraron perfiles",
+                            text = "Sin aplicaciones clonadas",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Pulsa '+ Clonar App' para añadir una nueva sesión aislada.",
+                            text = "Selecciona manualmente las aplicaciones de tu teléfono para crear una sesión clonada independiente.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp)
+                            modifier = Modifier.padding(top = 4.dp, bottom = 20.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
+
+                        Button(
+                            onClick = { showAddDialog = true },
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.testTag("empty_state_add_clone_btn")
+                        ) {
+                            Icon(imageVector = Icons.Default.AddCircle, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Clonar App de mi Teléfono")
+                        }
                     }
                 }
             } else {
@@ -552,6 +577,42 @@ fun DashboardScreen(
             onConfirmAdd = { newProfile ->
                 viewModel.addProfile(newProfile)
                 showAddDialog = false
+            }
+        )
+    }
+
+    // Delete All Confirmation Dialog
+    if (showDeleteAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAllDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.DeleteSweep,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = {
+                Text("¿Eliminar todos los clones?")
+            },
+            text = {
+                Text("Se eliminarán todas las cuentas y clones creados. Esta acción no se puede deshacer y te permitirá empezar completamente desde cero.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteAllProfiles()
+                        showDeleteAllDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Eliminar Todo")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAllDialog = false }) {
+                    Text("Cancelar")
+                }
             }
         )
     }

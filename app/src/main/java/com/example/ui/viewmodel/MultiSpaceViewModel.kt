@@ -163,6 +163,14 @@ class MultiSpaceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun deleteAllProfiles() {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.deleteAllProfiles()
+            _activeProfileId.value = null
+            _screenState.value = ScreenState.Dashboard
+        }
+    }
+
     fun clearProfileData(profile: ProfileEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             val updated = profile.copy(cookieCount = 0, dataUsageBytes = 0L)
