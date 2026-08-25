@@ -55,19 +55,24 @@ fun SandboxWebView(
     var isLoading by remember { mutableStateOf(true) }
     var progress by remember { mutableFloatStateOf(0f) }
     var canGoBack by remember { mutableStateOf(false) }
-    var isDesktopMode by remember { mutableStateOf(profile.desktopMode) }
+    val isWhatsApp = remember(profile.targetUrl, profile.name, profile.appName) {
+        profile.targetUrl.contains("whatsapp", ignoreCase = true) ||
+        profile.name.contains("whatsapp", ignoreCase = true) ||
+        profile.appName.contains("whatsapp", ignoreCase = true)
+    }
+
+    var isDesktopMode by remember { mutableStateOf(if (isWhatsApp) true else profile.desktopMode) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var showUrlBar by remember { mutableStateOf(false) }
     var inputUrlText by remember { mutableStateOf(profile.targetUrl) }
     var isFullscreenAppMode by remember { mutableStateOf(false) }
 
     // Resolve User-Agent based on preference
-    val selectedUserAgent = remember(isDesktopMode, profile.userAgentMode) {
-        if (isDesktopMode) {
+    val selectedUserAgent = remember(isDesktopMode, profile.userAgentMode, isWhatsApp) {
+        if (isWhatsApp || isDesktopMode || profile.userAgentMode == "Desktop Chrome") {
             DESKTOP_USER_AGENT
         } else {
             when (profile.userAgentMode) {
-                "Desktop Chrome" -> DESKTOP_USER_AGENT
                 "Mobile Android" -> MOBILE_CHROME_USER_AGENT
                 else -> MOBILE_CHROME_USER_AGENT
             }
@@ -157,6 +162,23 @@ fun SandboxWebView(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1
                             )
+                        }
+
+                        // Direct Native App Shortcut if installed on phone
+                        if (!profile.packageName.isNullOrEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PhoneAndroid,
+                                    contentDescription = "Abrir App Nativa",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
 
                         // Reload
@@ -330,11 +352,20 @@ fun SandboxWebView(
                                     onStatsUpdated(cookieCount, 1024L * (cookieCount + 15))
                                 }
 
-                                // Inject viewport and styling to make web apps look 100% native
-                                view?.evaluateJavascript(
+                                // Inject viewport and desktop spoofing for WhatsApp / Web apps
+                                val jsInjection = if (isWhatsApp) {
                                     """
                                     (function() {
-                                        // Ensure viewport meta tag exists for responsive mobile layout
+                                        try {
+                                            Object.defineProperty(navigator, 'platform', { get: function() { return 'Win32'; } });
+                                            Object.defineProperty(navigator, 'userAgent', { get: function() { return '$DESKTOP_USER_AGENT'; } });
+                                            Object.defineProperty(navigator, 'vendor', { get: function() { return 'Google Inc.'; } });
+                                        } catch(e) {}
+                                    })();
+                                    """.trimIndent()
+                                } else {
+                                    """
+                                    (function() {
                                         var meta = document.querySelector('meta[name="viewport"]');
                                         if (!meta) {
                                             meta = document.createElement('meta');
@@ -342,14 +373,13 @@ fun SandboxWebView(
                                             meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
                                             document.getElementsByTagName('head')[0].appendChild(meta);
                                         }
-                                        // Disable default web callout/tap highlights for native touch feel
                                         var style = document.createElement('style');
                                         style.innerHTML = '* { -webkit-tap-highlight-color: transparent; } body { overscroll-behavior-y: contain; }';
                                         document.head.appendChild(style);
                                     })();
-                                    """.trimIndent(),
-                                    null
-                                )
+                                    """.trimIndent()
+                                }
+                                view?.evaluateJavascript(jsInjection, null)
                             }
 
                             override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {

@@ -105,6 +105,13 @@ object InstalledAppScanner {
                 iconKey = "telegram",
                 desktopMode = false
             )
+            pkg.contains("imvu") || name.contains("imvu") -> PackageMetadata(
+                url = "https://secure.imvu.com/next/chat/",
+                category = "Social",
+                color = 0xFF00B4D8,
+                iconKey = "apps",
+                desktopMode = false
+            )
             pkg.contains("instagram") || name.contains("instagram") -> PackageMetadata(
                 url = "https://www.instagram.com/",
                 category = "Social",
@@ -161,6 +168,34 @@ object InstalledAppScanner {
                 iconKey = "reddit",
                 desktopMode = false
             )
+            pkg.contains("pinterest") || name.contains("pinterest") -> PackageMetadata(
+                url = "https://www.pinterest.com/",
+                category = "Social",
+                color = 0xFFBD081C,
+                iconKey = "apps",
+                desktopMode = false
+            )
+            pkg.contains("mercadolibre") || name.contains("mercado") -> PackageMetadata(
+                url = "https://www.mercadolibre.com/",
+                category = "Finanzas",
+                color = 0xFFFFE600,
+                iconKey = "apps",
+                desktopMode = false
+            )
+            pkg.contains("shein") || name.contains("shein") -> PackageMetadata(
+                url = "https://m.shein.com/",
+                category = "Personal",
+                color = 0xFF000000,
+                iconKey = "apps",
+                desktopMode = false
+            )
+            pkg.contains("roblox") || name.contains("roblox") -> PackageMetadata(
+                url = "https://www.roblox.com/home",
+                category = "Personal",
+                color = 0xFF00A2FF,
+                iconKey = "apps",
+                desktopMode = false
+            )
             pkg.contains("linkedin") || name.contains("linkedin") -> PackageMetadata(
                 url = "https://www.linkedin.com/",
                 category = "Trabajo",
@@ -211,14 +246,14 @@ object InstalledAppScanner {
                 desktopMode = false
             )
             pkg.contains("bank") || pkg.contains("banc") || name.contains("banc") || name.contains("bank") -> PackageMetadata(
-                url = "https://www.google.com/search?q=${label.replace(" ", "+")}",
+                url = "https://m.google.com",
                 category = "Finanzas",
                 color = 0xFF10B981,
                 iconKey = "crypto",
                 desktopMode = false
             )
             else -> PackageMetadata(
-                url = "https://www.google.com/search?q=${label.replace(" ", "+")}",
+                url = "https://m.google.com",
                 category = "Personal",
                 color = 0xFF06B6D4,
                 iconKey = "apps",
