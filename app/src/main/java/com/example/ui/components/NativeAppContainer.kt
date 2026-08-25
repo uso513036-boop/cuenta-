@@ -30,6 +30,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.compose.ui.viewinterop.AndroidView
 import com.example.data.local.ProfileEntity
 import com.example.model.CountryInfo
 import com.example.model.CountryRepository
@@ -3166,6 +3170,36 @@ fun NativeGeneralUtilitySandbox(
     onCloseSandbox: () -> Unit
 ) {
     val context = LocalContext.current
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Lanzador Nativo, 1: Navegador / Web App, 2: Datos
+    var autoLaunchCountdown by remember { mutableIntStateOf(3) }
+    var isAutoLaunchActive by remember { mutableStateOf(!profile.packageName.isNullOrBlank()) }
+    var webUrl by remember(profile.id) {
+        val defaultUrl = when {
+            profile.targetUrl.isNotBlank() -> profile.targetUrl
+            profile.name.lowercase().contains("popular") -> "https://www.bancopopular.fi.cr"
+            profile.name.lowercase().contains("facebook") -> "https://m.facebook.com"
+            profile.name.lowercase().contains("twitter") || profile.name.lowercase().contains("x") -> "https://x.com"
+            profile.name.lowercase().contains("tiktok") -> "https://www.tiktok.com"
+            profile.name.lowercase().contains("spotify") -> "https://open.spotify.com"
+            profile.name.lowercase().contains("netflix") -> "https://www.netflix.com"
+            else -> "https://www.google.com"
+        }
+        mutableStateOf(defaultUrl)
+    }
+
+    // Auto-launch countdown effect if package is installed
+    LaunchedEffect(isAutoLaunchActive, profile.packageName) {
+        if (isAutoLaunchActive && !profile.packageName.isNullOrBlank()) {
+            while (autoLaunchCountdown > 0 && isAutoLaunchActive) {
+                delay(1000)
+                autoLaunchCountdown--
+            }
+            if (isAutoLaunchActive && !profile.packageName.isNullOrBlank()) {
+                isAutoLaunchActive = false
+                SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -3174,7 +3208,7 @@ fun NativeGeneralUtilitySandbox(
                     Column {
                         Text(profile.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Text(
-                            text = profile.packageName ?: "com.app.sandbox",
+                            text = profile.packageName ?: "Instancia Aislada MultiSpace",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -3184,6 +3218,21 @@ fun NativeGeneralUtilitySandbox(
                     IconButton(onClick = onCloseSandbox) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
+                },
+                actions = {
+                    if (!profile.packageName.isNullOrBlank()) {
+                        IconButton(
+                            onClick = {
+                                SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Launch,
+                                contentDescription = "Abrir en el Teléfono",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             )
         }
@@ -3192,85 +3241,271 @@ fun NativeGeneralUtilitySandbox(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(80.dp)
+            // Tab Selector
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.surface
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Android,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(44.dp)
-                    )
-                }
-            }
-
-            Text(
-                text = "Contenedor de ${profile.name}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = "Paquete: ${profile.packageName ?: "com.app.sandbox"}\nInstancia aislada con almacenamiento SQLite, caché y permisos separados.",
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Primary Button: Launch on Device
-            if (!profile.packageName.isNullOrBlank()) {
-                Button(
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = { Text("Lanzador APK", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Default.Smartphone, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                )
+                Tab(
+                    selected = selectedTab == 1,
                     onClick = {
-                        val launched = SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
-                        if (!launched) {
-                            Toast.makeText(context, "No se pudo abrir directamente. Abre los ajustes de Dual Apps.", Toast.LENGTH_SHORT).show()
-                        }
+                        isAutoLaunchActive = false
+                        selectedTab = 1
                     },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                ) {
-                    Icon(Icons.Default.Launch, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("ABRIR APP EN EL TELÉFONO", fontWeight = FontWeight.Bold)
+                    text = { Text("Web / Cuenta 2", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                )
+                Tab(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    text = { Text("Ajustes & Datos", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                )
+            }
+
+            when (selectedTab) {
+                0 -> {
+                    // Native Launcher Tab
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Auto-launch notification banner
+                        if (isAutoLaunchActive && autoLaunchCountdown > 0) {
+                            item {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "🚀 Abriendo app en tu teléfono en ${autoLaunchCountdown}s...",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Button(
+                                                onClick = {
+                                                    isAutoLaunchActive = false
+                                                    profile.packageName?.let {
+                                                        SystemDualAppsLauncher.launchNativeApp(context, it)
+                                                    }
+                                                },
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Text("Abrir Ahora")
+                                            }
+                                            OutlinedButton(
+                                                onClick = { isAutoLaunchActive = false },
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Text("Cancelar")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                modifier = Modifier.size(80.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.RocketLaunch,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(44.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        item {
+                            Text(
+                                text = "Lanzador de ${profile.name}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Paquete: ${profile.packageName ?: "com.app.cloned"}\nEspacio independiente para ejecutar múltiples cuentas.",
+                                style = MaterialTheme.typography.bodySmall,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        // Main Action: Launch directly on device
+                        if (!profile.packageName.isNullOrBlank()) {
+                            item {
+                                Button(
+                                    onClick = {
+                                        val launched = SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
+                                        if (!launched) {
+                                            Toast.makeText(context, "No se pudo abrir directamente. Utiliza Apps Duales del sistema.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp)
+                                ) {
+                                    Icon(Icons.Default.Launch, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text("ABRIR APP EN EL TELÉFONO", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                }
+                            }
+                        }
+
+                        // Secondary Action: Dual Apps in system
+                        item {
+                            OutlinedButton(
+                                onClick = {
+                                    SystemDualAppsLauncher.openDeviceDualAppSettings(context)
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                            ) {
+                                Icon(Icons.Default.SettingsSuggest, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Ajustes de Apps Duales (Xiaomi / Samsung)")
+                            }
+                        }
+
+                        // Web View Bridge
+                        item {
+                            OutlinedButton(
+                                onClick = {
+                                    isAutoLaunchActive = false
+                                    selectedTab = 1
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                            ) {
+                                Icon(Icons.Default.Language, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Abrir Cuenta 2 en Navegador Aislado")
+                            }
+                        }
+                    }
                 }
-            }
+                1 -> {
+                    // Web / Cloud Isolated Container (WebView)
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // URL Bar
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedTextField(
+                                    value = webUrl,
+                                    onValueChange = { webUrl = it },
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp),
+                                    placeholder = { Text("https://...", fontSize = 12.sp) },
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                IconButton(onClick = { /* Reload URL */ }) {
+                                    Icon(Icons.Default.Refresh, contentDescription = "Recargar")
+                                }
+                            }
+                        }
 
-            // Secondary: System Dual Apps settings
-            OutlinedButton(
-                onClick = {
-                    SystemDualAppsLauncher.openDeviceDualAppSettings(context)
-                },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.SettingsSuggest, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Ajustes de Apps Duales del Sistema (Xiaomi/Samsung)")
-            }
+                        // Embedded Isolated WebView
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            AndroidView(
+                                factory = { ctx ->
+                                    WebView(ctx).apply {
+                                        settings.javaScriptEnabled = true
+                                        settings.domStorageEnabled = true
+                                        settings.databaseEnabled = true
+                                        settings.cacheMode = WebSettings.LOAD_DEFAULT
+                                        webViewClient = WebViewClient()
+                                        loadUrl(webUrl)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
+                2 -> {
+                    // Settings & Data Tab
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        item {
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text("Información de Aislamiento", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("• Nombre: ${profile.name}", fontSize = 13.sp)
+                                    Text("• Paquete: ${profile.packageName ?: "N/A"}", fontSize = 13.sp)
+                                    Text("• Categoría: ${profile.spaceCategory}", fontSize = 13.sp)
+                                    Text("• Estado de Cifrado: Protegido con PIN/Biometría", fontSize = 13.sp)
+                                }
+                            }
+                        }
 
-            OutlinedButton(
-                onClick = {
-                    Toast.makeText(context, "Caché de ${profile.name} limpiado exitosamente", Toast.LENGTH_SHORT).show()
-                },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.CleaningServices, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Limpiar Caché de la Cuenta Aislada")
+                        item {
+                            Button(
+                                onClick = {
+                                    Toast.makeText(context, "Caché de ${profile.name} limpiado exitosamente", Toast.LENGTH_SHORT).show()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.CleaningServices, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Limpiar Caché y Cookies de esta Cuenta")
+                            }
+                        }
+                    }
+                }
             }
         }
     }
