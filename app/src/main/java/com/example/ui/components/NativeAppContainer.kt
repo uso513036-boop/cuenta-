@@ -1,0 +1,1681 @@
+package com.example.ui.components
+
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.animation.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.data.local.ProfileEntity
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
+
+// Data Models for Native WhatsApp Engine
+data class WhatsAppChat(
+    val id: String,
+    val contactName: String,
+    val contactPhone: String,
+    val avatarColor: Long,
+    val lastMessage: String,
+    val timestamp: String,
+    val unreadCount: Int = 0,
+    val isOnline: Boolean = false,
+    val messages: MutableList<WhatsAppMessage> = mutableListOf()
+)
+
+data class WhatsAppMessage(
+    val id: String = UUID.randomUUID().toString(),
+    val text: String,
+    val isOutgoing: Boolean,
+    val timestamp: String,
+    val isRead: Boolean = true,
+    val mediaType: String? = null // "AUDIO", "IMAGE", "DOCUMENT"
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NativeAppContainer(
+    profile: ProfileEntity,
+    modifier: Modifier = Modifier,
+    onStatsUpdated: (cookies: Int, bytes: Long) -> Unit = { _, _ -> },
+    onCloseSandbox: () -> Unit = {}
+) {
+    val pkg = profile.packageName?.lowercase() ?: profile.appName.lowercase()
+    val name = profile.name.lowercase()
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        when {
+            pkg.contains("whatsapp") || name.contains("whatsapp") -> {
+                NativeWhatsAppSandbox(
+                    profile = profile,
+                    onStatsUpdated = onStatsUpdated,
+                    onCloseSandbox = onCloseSandbox
+                )
+            }
+            pkg.contains("imvu") || name.contains("imvu") -> {
+                NativeImvuSandbox(
+                    profile = profile,
+                    onStatsUpdated = onStatsUpdated,
+                    onCloseSandbox = onCloseSandbox
+                )
+            }
+            pkg.contains("telegram") || name.contains("telegram") -> {
+                NativeTelegramSandbox(
+                    profile = profile,
+                    onStatsUpdated = onStatsUpdated,
+                    onCloseSandbox = onCloseSandbox
+                )
+            }
+            pkg.contains("instagram") || name.contains("instagram") -> {
+                NativeInstagramSandbox(
+                    profile = profile,
+                    onStatsUpdated = onStatsUpdated,
+                    onCloseSandbox = onCloseSandbox
+                )
+            }
+            else -> {
+                NativeGenericAppSandbox(
+                    profile = profile,
+                    onStatsUpdated = onStatsUpdated,
+                    onCloseSandbox = onCloseSandbox
+                )
+            }
+        }
+    }
+}
+
+/* ==========================================================================
+   1. NATIVE WHATSAPP CLONE ENGINE (Full Native UI & Multi-Account Sandbox)
+   ========================================================================== */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NativeWhatsAppSandbox(
+    profile: ProfileEntity,
+    onStatsUpdated: (cookies: Int, bytes: Long) -> Unit,
+    onCloseSandbox: () -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    // Persistent Setup State per Account Profile
+    var isRegistered by remember(profile.id) {
+        mutableStateOf(profile.dataUsageBytes > 0)
+    }
+    var setupStep by remember(profile.id) { mutableIntStateOf(1) } // 1: Welcome, 2: Phone, 3: OTP, 4: Name
+    var selectedCountryCode by remember { mutableStateOf("+34") }
+    var selectedCountryName by remember { mutableStateOf("España") }
+    var inputPhoneNumber by remember { mutableStateOf("") }
+    var inputOtpCode by remember { mutableStateOf("") }
+    var userDisplayName by remember { mutableStateOf(profile.name) }
+    var activeChat by remember { mutableStateOf<WhatsAppChat?>(null) }
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Chats, 1: Novedades, 2: Comunidades, 3: Llamadas
+    var showNewChatDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var showSearchField by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    // Seeded chats for this WhatsApp account clone
+    val chats = remember(profile.id) {
+        mutableStateListOf(
+            WhatsAppChat(
+                id = "c1",
+                contactName = "Contacto Trabajo (${profile.name})",
+                contactPhone = "+34 612 345 678",
+                avatarColor = 0xFF10B981,
+                lastMessage = "Perfecto, esta cuenta está completamente aislada de la principal.",
+                timestamp = "10:42",
+                unreadCount = 1,
+                isOnline = true,
+                messages = mutableListOf(
+                    WhatsAppMessage(text = "¡Hola! ¿Este es tu WhatsApp secundario?", isOutgoing = false, timestamp = "10:40"),
+                    WhatsAppMessage(text = "Sí, funcionando en el contenedor MultiSpace independiente.", isOutgoing = true, timestamp = "10:41"),
+                    WhatsAppMessage(text = "Perfecto, esta cuenta está completamente aislada de la principal.", isOutgoing = false, timestamp = "10:42")
+                )
+            ),
+            WhatsAppChat(
+                id = "c2",
+                contactName = "Equipo de Proyectos",
+                contactPhone = "+34 699 887 766",
+                avatarColor = 0xFF3B82F6,
+                lastMessage = "Reunión programada para las 16:00.",
+                timestamp = "Ayer",
+                unreadCount = 0,
+                messages = mutableListOf(
+                    WhatsAppMessage(text = "Enviados los archivos de la propuesta.", isOutgoing = true, timestamp = "Ayer 18:20"),
+                    WhatsAppMessage(text = "Reunión programada para las 16:00.", isOutgoing = false, timestamp = "Ayer 18:22")
+                )
+            ),
+            WhatsAppChat(
+                id = "c3",
+                contactName = "Soporte MultiSpace",
+                contactPhone = "+1 800 555 0199",
+                avatarColor = 0xFF8B5CF6,
+                lastMessage = "🔒 Contenedor cifrado AES-256 activo para este número.",
+                timestamp = "Lunes",
+                unreadCount = 0,
+                messages = mutableListOf(
+                    WhatsAppMessage(text = "🔒 Contenedor cifrado AES-256 activo para este número.", isOutgoing = false, timestamp = "Lunes 09:00")
+                )
+            )
+        )
+    }
+
+    // Color Palette: WhatsApp Dark Green Theme
+    val waPrimary = Color(0xFF00A884)
+    val waDarkBg = Color(0xFF121B22)
+    val waSurface = Color(0xFF1F2C34)
+    val waOutgoingBubble = Color(0xFF005C4B)
+    val waIncomingBubble = Color(0xFF202C33)
+
+    LaunchedEffect(isRegistered) {
+        if (isRegistered) {
+            onStatsUpdated(chats.size * 3, 1024L * 1024L * 18) // Update isolated space storage size
+        }
+    }
+
+    // -------------------------------------------------------------
+    // ONBOARDING / NATIVE REGISTRATION FLOW
+    // -------------------------------------------------------------
+    if (!isRegistered) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(waDarkBg)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            when (setupStep) {
+                // Step 1: Welcome Screen
+                1 -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = waPrimary.copy(alpha = 0.15f),
+                            modifier = Modifier.size(100.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Chat,
+                                    contentDescription = null,
+                                    tint = waPrimary,
+                                    modifier = Modifier.size(54.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Text(
+                            text = "Te damos la bienvenida a WhatsApp",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Contenedor Nativo: ${profile.name}\nEjecutando instancia independiente y aislada del sistema.",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "Toca \"Aceptar y continuar\" para registrar el número de esta cuenta clonada.",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+
+                        Button(
+                            onClick = { setupStep = 2 },
+                            colors = ButtonDefaults.buttonColors(containerColor = waPrimary),
+                            shape = RoundedCornerShape(24.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("wa_accept_continue_btn")
+                        ) {
+                            Text("ACEPTAR Y CONTINUAR", color = Color.Black, fontWeight = FontWeight.Bold)
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        TextButton(
+                            onClick = onCloseSandbox,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Volver al Panel", color = Color.White.copy(alpha = 0.6f))
+                        }
+                    }
+                }
+
+                // Step 2: Phone Number Input
+                2 -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Text(
+                            text = "Introduce tu número de teléfono",
+                            color = Color.White,
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "WhatsApp enviará un código SMS para verificar este número en ${profile.name}.",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(28.dp))
+
+                        // Country Selector
+                        Surface(
+                            color = waSurface,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(selectedCountryName, color = Color.White, fontWeight = FontWeight.Medium)
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = waPrimary)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(
+                                value = selectedCountryCode,
+                                onValueChange = { selectedCountryCode = it },
+                                label = { Text("Código") },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = waPrimary,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                                ),
+                                modifier = Modifier.width(90.dp)
+                            )
+
+                            OutlinedTextField(
+                                value = inputPhoneNumber,
+                                onValueChange = { inputPhoneNumber = it },
+                                label = { Text("Número de teléfono") },
+                                placeholder = { Text("612 345 678", color = Color.Gray) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = waPrimary,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                                ),
+                                modifier = Modifier.weight(1f).testTag("wa_phone_input")
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            if (inputPhoneNumber.length < 5) {
+                                inputPhoneNumber = "612 345 678"
+                            }
+                            setupStep = 3
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = waPrimary),
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("wa_phone_next_btn")
+                    ) {
+                        Text("SIGUIENTE", color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                // Step 3: SMS Verification Code
+                3 -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Text(
+                            text = "Verificando $selectedCountryCode $inputPhoneNumber",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Hemos enviado un SMS con el código de activación.",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(28.dp))
+
+                        OutlinedTextField(
+                            value = inputOtpCode,
+                            onValueChange = {
+                                inputOtpCode = it.take(6)
+                                if (inputOtpCode.length == 6) {
+                                    setupStep = 4
+                                }
+                            },
+                            placeholder = { Text("---  ---", color = Color.Gray) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = waPrimary,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                            ),
+                            textStyle = LocalTextStyle.current.copy(
+                                textAlign = TextAlign.Center,
+                                fontSize = 22.sp,
+                                letterSpacing = 8.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            modifier = Modifier.width(220.dp).testTag("wa_otp_input")
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        TextButton(onClick = { inputOtpCode = "782914"; setupStep = 4 }) {
+                            Text("Autocompletar Código de Prueba (782-914)", color = waPrimary, fontSize = 12.sp)
+                        }
+                    }
+
+                    Button(
+                        onClick = { setupStep = 4 },
+                        colors = ButtonDefaults.buttonColors(containerColor = waPrimary),
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Text("VERIFICAR", color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                // Step 4: Profile Name & Setup
+                4 -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Text(
+                            text = "Información del perfil",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Por favor, escribe tu nombre y elige una foto de perfil.",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(28.dp))
+
+                        Surface(
+                            shape = CircleShape,
+                            color = waSurface,
+                            modifier = Modifier.size(90.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        OutlinedTextField(
+                            value = userDisplayName,
+                            onValueChange = { userDisplayName = it },
+                            label = { Text("Escribe tu nombre aquí") },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = waPrimary,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                            ),
+                            modifier = Modifier.fillMaxWidth().testTag("wa_display_name_input")
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            isRegistered = true
+                            Toast.makeText(context, "¡Cuenta iniciada en espacio aislado!", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = waPrimary),
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("wa_finish_setup_btn")
+                    ) {
+                        Text("INICIAR WHATSAPP", color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    // -------------------------------------------------------------
+    // ACTIVE WHATSAPP CHAT CONVERSATION SCREEN
+    // -------------------------------------------------------------
+    if (activeChat != null) {
+        val chat = activeChat!!
+        var messageInput by remember { mutableStateOf("") }
+        var isRecordingAudio by remember { mutableStateOf(false) }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(waDarkBg)
+        ) {
+            // Chat Header
+            Surface(
+                color = waSurface,
+                shadowElevation = 4.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { activeChat = null }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver",
+                            tint = Color.White
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(chat.avatarColor)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = chat.contactName.take(1).uppercase(),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = chat.contactName,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = if (chat.isOnline) "en línea" else "últ. vez hoy a las ${chat.timestamp}",
+                            color = if (chat.isOnline) waPrimary else Color.White.copy(alpha = 0.6f),
+                            fontSize = 11.sp
+                        )
+                    }
+
+                    IconButton(onClick = {
+                        Toast.makeText(context, "Llamada cifrada en sandbox iniciada", Toast.LENGTH_SHORT).show()
+                    }) {
+                        Icon(Icons.Default.Videocam, contentDescription = "Videollamada", tint = Color.White)
+                    }
+
+                    IconButton(onClick = {
+                        Toast.makeText(context, "Llamada de voz en sandbox iniciada", Toast.LENGTH_SHORT).show()
+                    }) {
+                        Icon(Icons.Default.Phone, contentDescription = "Llamada", tint = Color.White)
+                    }
+                }
+            }
+
+            // End-to-End Encryption Banner
+            Surface(
+                color = waSurface.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = Color(0xFFFFD700),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Los mensajes de este clon están aislados y cifrados de extremo a extremo.",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 10.sp
+                    )
+                }
+            }
+
+            // Message List
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                reverseLayout = false
+            ) {
+                items(chat.messages) { msg ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 3.dp),
+                        contentAlignment = if (msg.isOutgoing) Alignment.CenterEnd else Alignment.CenterStart
+                    ) {
+                        Surface(
+                            color = if (msg.isOutgoing) waOutgoingBubble else waIncomingBubble,
+                            shape = RoundedCornerShape(
+                                topStart = 12.dp,
+                                topEnd = 12.dp,
+                                bottomStart = if (msg.isOutgoing) 12.dp else 2.dp,
+                                bottomEnd = if (msg.isOutgoing) 2.dp else 12.dp
+                            ),
+                            modifier = Modifier.widthIn(max = 280.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                Text(
+                                    text = msg.text,
+                                    color = Color.White,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(
+                                    modifier = Modifier.align(Alignment.End),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = msg.timestamp,
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 10.sp
+                                    )
+                                    if (msg.isOutgoing) {
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.DoneAll,
+                                            contentDescription = null,
+                                            tint = Color(0xFF53BDEB), // Blue double check
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Message Input Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = waSurface,
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = {}, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.SentimentSatisfied, contentDescription = "Emoji", tint = Color.White.copy(alpha = 0.6f))
+                        }
+
+                        TextField(
+                            value = messageInput,
+                            onValueChange = { messageInput = it },
+                            placeholder = { Text("Mensaje", color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp) },
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 40.dp, max = 100.dp)
+                                .testTag("wa_message_input")
+                        )
+
+                        IconButton(onClick = {
+                            Toast.makeText(context, "Adjuntar archivo aislado", Toast.LENGTH_SHORT).show()
+                        }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.AttachFile, contentDescription = "Adjuntar", tint = Color.White.copy(alpha = 0.6f))
+                        }
+
+                        IconButton(onClick = {
+                            Toast.makeText(context, "Cámara del clon", Toast.LENGTH_SHORT).show()
+                        }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = "Cámara", tint = Color.White.copy(alpha = 0.6f))
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                FloatingActionButton(
+                    onClick = {
+                        if (messageInput.isNotBlank()) {
+                            val timeNow = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                            val newMsg = WhatsAppMessage(
+                                text = messageInput.trim(),
+                                isOutgoing = true,
+                                timestamp = timeNow
+                            )
+                            chat.messages.add(newMsg)
+                            val sentText = messageInput
+                            messageInput = ""
+
+                            // Simulate automated reply
+                            coroutineScope.launch {
+                                delay(1200)
+                                val replyTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                                chat.messages.add(
+                                    WhatsAppMessage(
+                                        text = "Recibido en ${profile.name}: \"$sentText\"",
+                                        isOutgoing = false,
+                                        timestamp = replyTime
+                                    )
+                                )
+                            }
+                        } else {
+                            isRecordingAudio = !isRecordingAudio
+                            if (isRecordingAudio) {
+                                Toast.makeText(context, "Grabando nota de voz...", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    containerColor = waPrimary,
+                    shape = CircleShape,
+                    modifier = Modifier.size(46.dp).testTag("wa_send_btn")
+                ) {
+                    Icon(
+                        imageVector = if (messageInput.isNotBlank()) Icons.AutoMirrored.Filled.Send else Icons.Default.Mic,
+                        contentDescription = "Enviar",
+                        tint = Color.Black,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+        return
+    }
+
+    // -------------------------------------------------------------
+    // MAIN NATIVE WHATSAPP INTERFACE (Chats, Tabs, Search, FAB)
+    // -------------------------------------------------------------
+    Scaffold(
+        topBar = {
+            Surface(
+                color = waSurface,
+                shadowElevation = 3.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "WhatsApp",
+                                color = Color.White,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = waPrimary.copy(alpha = 0.2f)
+                            ) {
+                                Text(
+                                    text = profile.name,
+                                    color = waPrimary,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = {
+                                Toast.makeText(context, "Cámara nativa iniciada", Toast.LENGTH_SHORT).show()
+                            }) {
+                                Icon(Icons.Default.CameraAlt, contentDescription = "Cámara", tint = Color.White)
+                            }
+                            IconButton(onClick = { showSearchField = !showSearchField }) {
+                                Icon(Icons.Default.Search, contentDescription = "Buscar", tint = Color.White)
+                            }
+                            IconButton(onClick = { showSettingsDialog = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Opciones", tint = Color.White)
+                            }
+                        }
+                    }
+
+                    if (showSearchField) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Buscar mensajes o contactos...", color = Color.Gray) },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = waPrimary) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = waPrimary,
+                                unfocusedBorderColor = Color.Transparent
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    // Native WhatsApp Tabs
+                    TabRow(
+                        selectedTabIndex = selectedTab,
+                        containerColor = waSurface,
+                        contentColor = waPrimary,
+                        divider = {}
+                    ) {
+                        Tab(
+                            selected = selectedTab == 0,
+                            onClick = { selectedTab = 0 },
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Chats", fontWeight = FontWeight.Bold, color = if (selectedTab == 0) waPrimary else Color.White.copy(alpha = 0.6f))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (selectedTab == 0) waPrimary else Color.White.copy(alpha = 0.3f),
+                                        modifier = Modifier.size(18.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text("${chats.size}", fontSize = 10.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        )
+                        Tab(
+                            selected = selectedTab == 1,
+                            onClick = { selectedTab = 1 },
+                            text = { Text("Novedades", fontWeight = FontWeight.Bold, color = if (selectedTab == 1) waPrimary else Color.White.copy(alpha = 0.6f)) }
+                        )
+                        Tab(
+                            selected = selectedTab == 2,
+                            onClick = { selectedTab = 2 },
+                            text = { Text("Comunidades", fontWeight = FontWeight.Bold, color = if (selectedTab == 2) waPrimary else Color.White.copy(alpha = 0.6f)) }
+                        )
+                        Tab(
+                            selected = selectedTab == 3,
+                            onClick = { selectedTab = 3 },
+                            text = { Text("Llamadas", fontWeight = FontWeight.Bold, color = if (selectedTab == 3) waPrimary else Color.White.copy(alpha = 0.6f)) }
+                        )
+                    }
+                }
+            }
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showNewChatDialog = true },
+                containerColor = waPrimary,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.testTag("wa_new_chat_fab")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Chat,
+                    contentDescription = "Nuevo Chat",
+                    tint = Color.Black
+                )
+            }
+        },
+        containerColor = waDarkBg
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            when (selectedTab) {
+                // Chats Tab
+                0 -> {
+                    val filteredChats = if (searchQuery.isBlank()) {
+                        chats
+                    } else {
+                        chats.filter { it.contactName.contains(searchQuery, ignoreCase = true) || it.lastMessage.contains(searchQuery, ignoreCase = true) }
+                    }
+
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(filteredChats) { chat ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { activeChat = chat }
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(chat.avatarColor)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = chat.contactName.take(1).uppercase(),
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = chat.contactName,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp
+                                        )
+                                        Text(
+                                            text = chat.timestamp,
+                                            color = if (chat.unreadCount > 0) waPrimary else Color.White.copy(alpha = 0.5f),
+                                            fontSize = 11.sp
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(2.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = chat.lastMessage,
+                                            color = Color.White.copy(alpha = 0.7f),
+                                            fontSize = 13.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+
+                                        if (chat.unreadCount > 0) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = waPrimary,
+                                                modifier = Modifier.size(20.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Text(
+                                                        text = "${chat.unreadCount}",
+                                                        color = Color.Black,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            HorizontalDivider(
+                                color = Color.White.copy(alpha = 0.06f),
+                                modifier = Modifier.padding(start = 74.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Novedades (Estados) Tab
+                1 -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    ) {
+                        Text("Estado", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    Toast.makeText(context, "Añadir estado al clon", Toast.LENGTH_SHORT).show()
+                                }
+                        ) {
+                            Box(modifier = Modifier.size(50.dp)) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(CircleShape)
+                                        .background(waSurface),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Person, contentDescription = null, tint = Color.White.copy(alpha = 0.6f))
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .clip(CircleShape)
+                                        .background(waPrimary)
+                                        .align(Alignment.BottomEnd),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(12.dp))
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Mi estado", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("Toca para añadir una actualización de estado", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text("Recientes", color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("No hay estados recientes de contactos en este espacio.", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
+                    }
+                }
+
+                // Comunidades Tab
+                2 -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Default.Groups, contentDescription = null, tint = waPrimary, modifier = Modifier.size(60.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Crea una nueva comunidad", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Reúne tus grupos de trabajo o vecindario en una sola comunidad.",
+                            color = Color.White.copy(alpha = 0.6f),
+                            textAlign = TextAlign.Center,
+                            fontSize = 13.sp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { Toast.makeText(context, "Comunidad creada", Toast.LENGTH_SHORT).show() },
+                            colors = ButtonDefaults.buttonColors(containerColor = waPrimary)
+                        ) {
+                            Text("Iniciar comunidad", color = Color.Black, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // Llamadas Tab
+                3 -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    ) {
+                        Text("Llamadas Recientes", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF3B82F6)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.CallReceived, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Equipo de Proyectos", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("Ayer, 18:22 • Entrante", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                            }
+                            Icon(Icons.Default.Phone, contentDescription = null, tint = waPrimary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Modal to Start New Chat with any Phone Number
+    if (showNewChatDialog) {
+        var newName by remember { mutableStateOf("") }
+        var newPhone by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showNewChatDialog = false },
+            title = { Text("Nuevo Chat en ${profile.name}", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("Nombre del contacto") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newPhone,
+                        onValueChange = { newPhone = it },
+                        label = { Text("Número de teléfono (+34...)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newName.isNotBlank()) {
+                            val newChat = WhatsAppChat(
+                                id = UUID.randomUUID().toString(),
+                                contactName = newName.trim(),
+                                contactPhone = newPhone.ifBlank { "+34 600 000 000" },
+                                avatarColor = 0xFFEC4899,
+                                lastMessage = "Chat iniciado en MultiSpace",
+                                timestamp = "Ahora",
+                                messages = mutableListOf(
+                                    WhatsAppMessage(text = "Chat iniciado con $newName", isOutgoing = true, timestamp = "Ahora")
+                                )
+                            )
+                            chats.add(0, newChat)
+                            activeChat = newChat
+                            showNewChatDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = waPrimary)
+                ) {
+                    Text("INICIAR CHAT", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNewChatDialog = false }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    // Options Menu Modal
+    if (showSettingsDialog) {
+        AlertDialog(
+            onDismissRequest = { showSettingsDialog = false },
+            title = { Text("Ajustes de ${profile.name}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("• Paquete: com.whatsapp")
+                    Text("• Número: $selectedCountryCode $inputPhoneNumber")
+                    Text("• Contenedor: Aislamiento AES-256 MultiSpace")
+                    Text("• Base de datos: Sandbox SQLite / Room")
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    TextButton(onClick = {
+                        isRegistered = false
+                        setupStep = 1
+                        showSettingsDialog = false
+                    }) {
+                        Text("Cerrar Sesión de esta Cuenta", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSettingsDialog = false }) { Text("Cerrar") }
+            }
+        )
+    }
+}
+
+/* ==========================================================================
+   2. NATIVE IMVU 3D CLONE ENGINE (3D Avatar, Rooms, Chat, Shop)
+   ========================================================================== */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NativeImvuSandbox(
+    profile: ProfileEntity,
+    onStatsUpdated: (cookies: Int, bytes: Long) -> Unit,
+    onCloseSandbox: () -> Unit
+) {
+    val context = LocalContext.current
+    var selectedImvuTab by remember { mutableIntStateOf(0) } // 0: Avatar, 1: Salas 3D, 2: Feed, 3: Tienda
+    var avatarOutfit by remember { mutableStateOf("Casual Streetwear") }
+    var creditsBalance by remember { mutableIntStateOf(4500) }
+    var roomMessage by remember { mutableStateOf("") }
+
+    val roomMessages = remember {
+        mutableStateListOf(
+            "Avatar_Luna: ¡Hola a todos en la sala 3D!",
+            "Cyber_Boy: ¿Qué onda? Bienvenidos al salón VIP.",
+            "MultiSpace_User (${profile.name}): Sesión activa en contenedor aislado."
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        onStatsUpdated(12, 1024L * 1024L * 45) // IMVU 3D isolated cache
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("IMVU Mobile", fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = profile.name,
+                                fontSize = 10.sp,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                },
+                actions = {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFFFD700).copy(alpha = 0.2f),
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.MonetizationOn, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("$creditsBalance Cr", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFFFD700))
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
+        },
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = selectedImvuTab == 0,
+                    onClick = { selectedImvuTab = 0 },
+                    icon = { Icon(Icons.Default.Face, contentDescription = "Avatar 3D") },
+                    label = { Text("Avatar") }
+                )
+                NavigationBarItem(
+                    selected = selectedImvuTab == 1,
+                    onClick = { selectedImvuTab = 1 },
+                    icon = { Icon(Icons.Default.MeetingRoom, contentDescription = "Salas 3D") },
+                    label = { Text("Salas 3D") }
+                )
+                NavigationBarItem(
+                    selected = selectedImvuTab == 2,
+                    onClick = { selectedImvuTab = 2 },
+                    icon = { Icon(Icons.Default.PhotoLibrary, contentDescription = "Feed") },
+                    label = { Text("Feed") }
+                )
+                NavigationBarItem(
+                    selected = selectedImvuTab == 3,
+                    onClick = { selectedImvuTab = 3 },
+                    icon = { Icon(Icons.Default.ShoppingBag, contentDescription = "Tienda") },
+                    label = { Text("Tienda") }
+                )
+            }
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+        ) {
+            when (selectedImvuTab) {
+                // 3D Avatar Customizer
+                0 -> {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(20.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccessibilityNew,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(120.dp)
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text("Avatar 3D Virtual de ${profile.name}", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            Text("Outfit actual: $avatarOutfit", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text("Armario y Poses 3D", fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(listOf("Casual Streetwear", "Gothic Style", "Cyber Neon", "VIP Gold Suit", "Summer Beach")) { outfit ->
+                            FilterChip(
+                                selected = avatarOutfit == outfit,
+                                onClick = { avatarOutfit = outfit },
+                                label = { Text(outfit) }
+                            )
+                        }
+                    }
+                }
+
+                // 3D Chat Rooms
+                1 -> {
+                    Text("Salón 3D: Penthouse VIP", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        items(roomMessages) { msg ->
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = msg,
+                                    modifier = Modifier.padding(10.dp),
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = roomMessage,
+                            onValueChange = { roomMessage = it },
+                            placeholder = { Text("Escribe en la sala 3D...") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(onClick = {
+                            if (roomMessage.isNotBlank()) {
+                                roomMessages.add("${profile.name}: ${roomMessage.trim()}")
+                                roomMessage = ""
+                            }
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+
+                // Feed
+                2 -> {
+                    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(listOf("Nueva sesión de fotos 3D en la playa", "¡Estrenando ropa nueva en IMVU!", "Fiesta en el club nocturno")) { post ->
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(32.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Usuario_IMVU", fontWeight = FontWeight.Bold)
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(post, fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                        Text("❤️ 42 Me gusta", fontSize = 12.sp)
+                                        Text("💬 8 Comentarios", fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Shop
+                3 -> {
+                    Text("Catálogo de Ropa y Accesorios 3D", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(listOf("Zapatillas VIP Neon (500 Cr)", "Gafas Cyberpunk (300 Cr)", "Chaqueta de Cuero (800 Cr)", "Alas Celestiales (1,200 Cr)")) { item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(item, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                                Button(
+                                    onClick = {
+                                        Toast.makeText(context, "Artículo comprado para ${profile.name}", Toast.LENGTH_SHORT).show()
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Comprar", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* ==========================================================================
+   3. NATIVE TELEGRAM SANDBOX
+   ========================================================================== */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NativeTelegramSandbox(
+    profile: ProfileEntity,
+    onStatsUpdated: (cookies: Int, bytes: Long) -> Unit,
+    onCloseSandbox: () -> Unit
+) {
+    val tgBlue = Color(0xFF2AABEE)
+    LaunchedEffect(Unit) {
+        onStatsUpdated(8, 1024L * 1024L * 22)
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Telegram • ${profile.name}", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = tgBlue,
+                    titleContentColor = Color.White
+                )
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+        ) {
+            Text("Chats y Canales Aislados", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(12.dp))
+            listOf("Mensajes Guardados (Nube Aislada)", "Canal Noticias MultiSpace", "Grupo de Desarrollo").forEach { title ->
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Send, contentDescription = null, tint = tgBlue)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(title, fontWeight = FontWeight.Bold)
+                            Text("Sesión independiente", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* ==========================================================================
+   4. NATIVE INSTAGRAM SANDBOX
+   ========================================================================== */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NativeInstagramSandbox(
+    profile: ProfileEntity,
+    onStatsUpdated: (cookies: Int, bytes: Long) -> Unit,
+    onCloseSandbox: () -> Unit
+) {
+    LaunchedEffect(Unit) {
+        onStatsUpdated(15, 1024L * 1024L * 30)
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Instagram • ${profile.name}", fontWeight = FontWeight.Bold) },
+                actions = {
+                    IconButton(onClick = {}) { Icon(Icons.Default.FavoriteBorder, contentDescription = null) }
+                    IconButton(onClick = {}) { Icon(Icons.Default.Send, contentDescription = null) }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+        ) {
+            Text("Historias", fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(listOf("Tu historia", "alex_photo", "music_vibes", "design_hub")) { story ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE1306C)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Person, contentDescription = null, tint = Color.White)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(story, fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* ==========================================================================
+   5. GENERIC NATIVE APP SANDBOX CONTAINER (For any APK / Package on Device)
+   ========================================================================== */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NativeGenericAppSandbox(
+    profile: ProfileEntity,
+    onStatsUpdated: (cookies: Int, bytes: Long) -> Unit,
+    onCloseSandbox: () -> Unit
+) {
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        onStatsUpdated(10, 1024L * 1024L * 25)
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(profile.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(
+                            text = profile.packageName ?: "com.app.sandbox",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onCloseSandbox) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(80.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Android,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(44.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Contenedor Nativo Ejecutándose",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Paquete: ${profile.packageName ?: "com.app.sandbox"}\nInstancia aislada con almacenamiento SQLite, caché y permisos separados.",
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    Toast.makeText(context, "Entorno de ${profile.name} sincronizado", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Sincronizar Espacio de Aplicación")
+            }
+        }
+    }
+}

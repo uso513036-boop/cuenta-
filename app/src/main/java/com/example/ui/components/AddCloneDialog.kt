@@ -82,7 +82,7 @@ fun AddCloneDialog(
     onConfirmAdd: (ProfileEntity) -> Unit
 ) {
     val context = LocalContext.current
-    var selectedTab by remember { mutableIntStateOf(0) } // 0 = Phone Apps, 1 = Web / Popular, 2 = Custom
+    var selectedTab by remember { mutableIntStateOf(0) } // 0 = Phone Apps, 1 = Popular Apps, 2 = Custom Package
 
     // Installed apps from phone
     var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
@@ -95,11 +95,10 @@ fun AddCloneDialog(
 
     var profileName by remember { mutableStateOf("") }
     var appTitle by remember { mutableStateOf("") }
-    var targetUrl by remember { mutableStateOf("https://") }
+    var customPackageInput by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("Personal") }
     var selectedColor by remember { mutableLongStateOf(0xFF06B6D4) }
     var selectedIconKey by remember { mutableStateOf("apps") }
-    var isDesktopMode by remember { mutableStateOf(false) }
     var isIncognito by remember { mutableStateOf(false) }
     var isPinLocked by remember { mutableStateOf(false) }
     var customPin by remember { mutableStateOf("") }
@@ -151,13 +150,13 @@ fun AddCloneDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Clonar Aplicación",
+                            text = "Clonar Aplicación Nativa",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Abre una 2ª sesión aislada con diseño de aplicación independiente",
+                            text = "Crea un clon nativo aislado para usar múltiples cuentas en el dispositivo",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -174,7 +173,7 @@ fun AddCloneDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Tabs: Phone Apps vs Catalog vs Custom
+                // Tabs: Phone Apps vs Popular Apps vs Custom Package
                 TabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -189,7 +188,7 @@ fun AddCloneDialog(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Mi Teléfono (${installedApps.size})", maxLines = 1)
+                                Text("Instaladas (${installedApps.size})", maxLines = 1)
                             }
                         }
                     )
@@ -198,9 +197,9 @@ fun AddCloneDialog(
                         onClick = { selectedTab = 1 },
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Public, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Apps, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Webs Populares", maxLines = 1)
+                                Text("Populares", maxLines = 1)
                             }
                         }
                     )
@@ -210,13 +209,14 @@ fun AddCloneDialog(
                             selectedTab = 2
                             if (profileName.isEmpty()) profileName = "Mi App Clon"
                             if (appTitle.isEmpty()) appTitle = "App Personalizada"
-                            selectedPackageName = null
+                            if (customPackageInput.isEmpty()) customPackageInput = "com.ejemplo.app"
+                            selectedPackageName = customPackageInput
                         },
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.AddLink, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Personalizado", maxLines = 1)
+                                Text("Otro Paquete", maxLines = 1)
                             }
                         }
                     )
@@ -237,7 +237,7 @@ fun AddCloneDialog(
                             OutlinedTextField(
                                 value = appSearchQuery,
                                 onValueChange = { appSearchQuery = it },
-                                placeholder = { Text("Buscar app instalada...") },
+                                placeholder = { Text("Buscar app en el teléfono...") },
                                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                                 trailingIcon = {
                                     if (appSearchQuery.isNotEmpty()) {
@@ -264,7 +264,7 @@ fun AddCloneDialog(
                                         CircularProgressIndicator(modifier = Modifier.size(36.dp))
                                         Spacer(modifier = Modifier.height(10.dp))
                                         Text(
-                                            "Explorando apps instaladas...",
+                                            "Escaneando aplicaciones instaladas...",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -303,13 +303,11 @@ fun AddCloneDialog(
                                                     selectedInstalledApp = app
                                                     selectedPreset = null
                                                     selectedPackageName = app.packageName
-                                                    profileName = "${app.appName} Clon 2"
+                                                    profileName = "${app.appName} Cuenta 2"
                                                     appTitle = app.appName
-                                                    targetUrl = app.suggestedUrl
                                                     selectedCategory = app.suggestedCategory
                                                     selectedColor = app.suggestedColor
                                                     selectedIconKey = app.suggestedIconKey
-                                                    isDesktopMode = false // Default to mobile app view
                                                 }
                                         ) {
                                             Row(
@@ -375,18 +373,16 @@ fun AddCloneDialog(
                                                             selectedInstalledApp = app
                                                             selectedPreset = null
                                                             selectedPackageName = app.packageName
-                                                            profileName = "${app.appName} Clon 2"
+                                                            profileName = "${app.appName} Cuenta 2"
                                                             appTitle = app.appName
-                                                            targetUrl = app.suggestedUrl
                                                             selectedCategory = app.suggestedCategory
                                                             selectedColor = app.suggestedColor
                                                             selectedIconKey = app.suggestedIconKey
-                                                            isDesktopMode = false
                                                         },
                                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                                         modifier = Modifier.height(34.dp)
                                                     ) {
-                                                        Text("Elegir", fontSize = 12.sp)
+                                                        Text("Clonar", fontSize = 12.sp)
                                                     }
                                                 }
                                             }
@@ -398,7 +394,7 @@ fun AddCloneDialog(
                     }
 
                     1 -> {
-                        // TAB 1: POPULAR WEB SERVICES
+                        // TAB 1: POPULAR APP PRESETS
                         Column(
                             modifier = Modifier
                                 .weight(1f)
@@ -406,7 +402,7 @@ fun AddCloneDialog(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "Elige una plataforma popular:",
+                                text = "Elige una aplicación recomendada para clonar:",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -423,14 +419,12 @@ fun AddCloneDialog(
                                         .clickable {
                                             selectedPreset = preset
                                             selectedInstalledApp = null
-                                            selectedPackageName = null
-                                            profileName = "${preset.name} Clon 2"
+                                            selectedPackageName = preset.packageName
+                                            profileName = "${preset.name} Cuenta 2"
                                             appTitle = preset.name
-                                            targetUrl = preset.defaultUrl
                                             selectedCategory = if (preset.category in CATEGORIES) preset.category else "Personal"
                                             selectedColor = preset.defaultColor
                                             selectedIconKey = preset.iconKey
-                                            isDesktopMode = false
                                         }
                                 ) {
                                     Row(
@@ -463,7 +457,7 @@ fun AddCloneDialog(
                                                 fontWeight = FontWeight.Bold
                                             )
                                             Text(
-                                                text = preset.description,
+                                                text = "${preset.description} • ${preset.packageName}",
                                                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 maxLines = 1
@@ -485,7 +479,7 @@ fun AddCloneDialog(
                     }
 
                     2 -> {
-                        // TAB 2: MANUAL / CUSTOM APP CONFIGURATION
+                        // TAB 2: MANUAL / CUSTOM APP PACKAGE
                         Column(
                             modifier = Modifier
                                 .weight(1f)
@@ -497,21 +491,24 @@ fun AddCloneDialog(
                                 onValueChange = {
                                     appTitle = it
                                     if (profileName.isEmpty() || profileName.startsWith("Mi App")) {
-                                        profileName = "$it Clon"
+                                        profileName = "$it Cuenta 2"
                                     }
                                 },
                                 label = { Text("Nombre de la Aplicación") },
-                                placeholder = { Text("Ej: WhatsApp, Mercado Libre, Banco") },
+                                placeholder = { Text("Ej: WhatsApp, IMVU, Banco, Juego") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp)
                             )
 
                             OutlinedTextField(
-                                value = targetUrl,
-                                onValueChange = { targetUrl = it },
-                                label = { Text("URL o Dirección") },
-                                placeholder = { Text("https://...") },
+                                value = customPackageInput,
+                                onValueChange = {
+                                    customPackageInput = it
+                                    selectedPackageName = it
+                                },
+                                label = { Text("Nombre del Paquete APK (Package Name)") },
+                                placeholder = { Text("com.whatsapp, com.imvu.mobile, etc.") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp)
@@ -540,10 +537,10 @@ fun AddCloneDialog(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.PhoneIphone, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Espacio Multi-Cuenta Aislado: sesión y datos independientes.",
+                                    text = "Espacio Multi-Cuenta Nativo: almacenamiento y sesión 100% aislados.",
                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -553,8 +550,8 @@ fun AddCloneDialog(
                         OutlinedTextField(
                             value = profileName,
                             onValueChange = { profileName = it },
-                            label = { Text("Nombre del Perfil Clonado") },
-                            placeholder = { Text("Ej: WhatsApp Trabajo, Instagram 2") },
+                            label = { Text("Nombre de la Cuenta / Perfil") },
+                            placeholder = { Text("Ej: WhatsApp Personal, WhatsApp Trabajo") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth().testTag("add_clone_name_input"),
                             shape = RoundedCornerShape(14.dp)
@@ -615,7 +612,7 @@ fun AddCloneDialog(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text("Bloqueo con PIN Individual", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                        Text("Protege este clon con clave de acceso", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Protege esta cuenta clonada con clave de acceso", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Switch(checked = isPinLocked, onCheckedChange = { isPinLocked = it })
                                 }
@@ -654,27 +651,21 @@ fun AddCloneDialog(
 
                     Button(
                         onClick = {
-                            var cleanUrl = targetUrl.trim()
-                            if (cleanUrl.isEmpty() || cleanUrl == "https://") {
-                                cleanUrl = "https://www.google.com/search?q=${appTitle.replace(" ", "+")}"
-                            } else if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
-                                cleanUrl = "https://$cleanUrl"
-                            }
-
+                            val targetPkg = selectedPackageName ?: selectedInstalledApp?.packageName ?: selectedPreset?.packageName ?: "com.app.cloned"
                             val finalProfile = ProfileEntity(
-                                name = profileName.ifEmpty { "${appTitle.ifEmpty { "App" }} Clon" },
+                                name = profileName.ifEmpty { "${appTitle.ifEmpty { "App" }} Cuenta 2" },
                                 appName = appTitle.ifEmpty { "App" },
                                 iconKey = selectedIconKey,
                                 badgeColor = selectedColor,
-                                targetUrl = cleanUrl,
+                                targetUrl = "package://$targetPkg",
                                 spaceCategory = selectedCategory,
-                                userAgentMode = if (isDesktopMode) "Desktop Chrome" else "Mobile Android",
-                                desktopMode = isDesktopMode,
+                                userAgentMode = "Native Package",
+                                desktopMode = false,
                                 isIncognito = isIncognito,
                                 isPinLocked = isPinLocked,
                                 customPin = if (isPinLocked && customPin.isNotEmpty()) customPin else null,
-                                packageName = selectedPackageName,
-                                launchMode = "APP_VIEW"
+                                packageName = targetPkg,
+                                launchMode = "NATIVE_APP"
                             )
                             onConfirmAdd(finalProfile)
                         },

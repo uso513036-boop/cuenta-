@@ -17,8 +17,8 @@ import com.example.data.local.ProfileEntity
 import com.example.model.AppCatalog
 import com.example.ui.components.AddCloneDialog
 import com.example.ui.components.DataInspectorDialog
+import com.example.ui.components.NativeAppContainer
 import com.example.ui.components.QuickSwitchBar
-import com.example.ui.components.SandboxWebView
 import com.example.ui.components.SecurityLockScreen
 import com.example.ui.viewmodel.MultiSpaceViewModel
 
@@ -66,10 +66,9 @@ fun ActiveSandboxScreen(
                 .padding(innerPadding)
                 .statusBarsPadding()
         ) {
-            SandboxWebView(
+            NativeAppContainer(
                 profile = profile,
                 modifier = Modifier.fillMaxSize(),
-                onTitleChanged = { /* Title update */ },
                 onStatsUpdated = { cookies, bytes ->
                     viewModel.updateProfileStats(profile.id, cookies, bytes)
                 },

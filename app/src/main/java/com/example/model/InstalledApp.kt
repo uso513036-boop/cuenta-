@@ -11,11 +11,11 @@ data class InstalledApp(
     val packageName: String,
     val icon: Drawable? = null,
     val isSystemApp: Boolean = false,
-    val suggestedUrl: String = "",
     val suggestedCategory: String = "Personal",
     val suggestedColor: Long = 0xFF06B6D4,
     val suggestedIconKey: String = "apps",
-    val recommendedDesktopUA: Boolean = false
+    val apkSizeMb: Double = 35.0,
+    val versionName: String = "1.0.0"
 )
 
 object InstalledAppScanner {
@@ -59,7 +59,17 @@ object InstalledAppScanner {
                 false
             }
 
-            val (url, category, color, iconKey, desktop) = getPresetMetadataForPackage(pkg, label)
+            val (category, color, iconKey) = getPresetMetadataForPackage(pkg, label)
+
+            val (apkSize, version) = try {
+                val pkgInfo = pm.getPackageInfo(pkg, 0)
+                val sourceDir = pkgInfo.applicationInfo?.sourceDir
+                val file = if (sourceDir != null) java.io.File(sourceDir) else null
+                val sizeMb = if (file != null && file.exists()) file.length() / (1024.0 * 1024.0) else 42.0
+                Pair(if (sizeMb > 0) sizeMb else 35.0, pkgInfo.versionName ?: "1.0.0")
+            } catch (e: Exception) {
+                Pair(45.0, "1.0")
+            }
 
             results.add(
                 InstalledApp(
@@ -67,11 +77,11 @@ object InstalledAppScanner {
                     packageName = pkg,
                     icon = iconDrawable,
                     isSystemApp = isSystem,
-                    suggestedUrl = url,
                     suggestedCategory = category,
                     suggestedColor = color,
                     suggestedIconKey = iconKey,
-                    recommendedDesktopUA = desktop
+                    apkSizeMb = apkSize,
+                    versionName = version
                 )
             )
         }
@@ -92,181 +102,76 @@ object InstalledAppScanner {
 
         return when {
             pkg.contains("whatsapp") || name.contains("whatsapp") -> PackageMetadata(
-                url = "https://web.whatsapp.com",
                 category = "Mensajería",
                 color = 0xFF25D366,
-                iconKey = "whatsapp",
-                desktopMode = true
+                iconKey = "whatsapp"
             )
             pkg.contains("telegram") || name.contains("telegram") -> PackageMetadata(
-                url = "https://web.telegram.org/k/",
                 category = "Mensajería",
                 color = 0xFF2AABEE,
-                iconKey = "telegram",
-                desktopMode = false
+                iconKey = "telegram"
             )
             pkg.contains("imvu") || name.contains("imvu") -> PackageMetadata(
-                url = "https://secure.imvu.com/next/chat/",
                 category = "Social",
                 color = 0xFF00B4D8,
-                iconKey = "apps",
-                desktopMode = false
+                iconKey = "apps"
             )
             pkg.contains("instagram") || name.contains("instagram") -> PackageMetadata(
-                url = "https://www.instagram.com/",
                 category = "Social",
                 color = 0xFFE1306C,
-                iconKey = "instagram",
-                desktopMode = false
+                iconKey = "instagram"
             )
             pkg.contains("twitter") || pkg.contains(".x.") || name.contains("twitter") || name == "x" -> PackageMetadata(
-                url = "https://x.com/",
                 category = "Social",
                 color = 0xFF1DA1F2,
-                iconKey = "twitter",
-                desktopMode = false
+                iconKey = "twitter"
             )
             pkg.contains("facebook") || pkg.contains("katana") || name.contains("facebook") -> PackageMetadata(
-                url = "https://m.facebook.com/",
                 category = "Social",
                 color = 0xFF1877F2,
-                iconKey = "facebook",
-                desktopMode = false
+                iconKey = "facebook"
             )
             pkg.contains("tiktok") || name.contains("tiktok") || pkg.contains("musical") -> PackageMetadata(
-                url = "https://www.tiktok.com/",
                 category = "Social",
                 color = 0xFFEE1D52,
-                iconKey = "tiktok",
-                desktopMode = false
+                iconKey = "tiktok"
             )
             pkg.contains("discord") || name.contains("discord") -> PackageMetadata(
-                url = "https://discord.com/app",
                 category = "Comunidad",
                 color = 0xFF5865F2,
-                iconKey = "discord",
-                desktopMode = true
-            )
-            pkg.contains("slack") || name.contains("slack") -> PackageMetadata(
-                url = "https://app.slack.com/client",
-                category = "Trabajo",
-                color = 0xFF4A154B,
-                iconKey = "slack",
-                desktopMode = true
+                iconKey = "discord"
             )
             pkg.contains("spotify") || name.contains("spotify") -> PackageMetadata(
-                url = "https://open.spotify.com/",
                 category = "Social",
                 color = 0xFF1DB954,
-                iconKey = "spotify",
-                desktopMode = false
+                iconKey = "spotify"
             )
             pkg.contains("reddit") || name.contains("reddit") -> PackageMetadata(
-                url = "https://www.reddit.com/",
                 category = "Comunidad",
                 color = 0xFFFF4500,
-                iconKey = "reddit",
-                desktopMode = false
-            )
-            pkg.contains("pinterest") || name.contains("pinterest") -> PackageMetadata(
-                url = "https://www.pinterest.com/",
-                category = "Social",
-                color = 0xFFBD081C,
-                iconKey = "apps",
-                desktopMode = false
-            )
-            pkg.contains("mercadolibre") || name.contains("mercado") -> PackageMetadata(
-                url = "https://www.mercadolibre.com/",
-                category = "Finanzas",
-                color = 0xFFFFE600,
-                iconKey = "apps",
-                desktopMode = false
-            )
-            pkg.contains("shein") || name.contains("shein") -> PackageMetadata(
-                url = "https://m.shein.com/",
-                category = "Personal",
-                color = 0xFF000000,
-                iconKey = "apps",
-                desktopMode = false
-            )
-            pkg.contains("roblox") || name.contains("roblox") -> PackageMetadata(
-                url = "https://www.roblox.com/home",
-                category = "Personal",
-                color = 0xFF00A2FF,
-                iconKey = "apps",
-                desktopMode = false
-            )
-            pkg.contains("linkedin") || name.contains("linkedin") -> PackageMetadata(
-                url = "https://www.linkedin.com/",
-                category = "Trabajo",
-                color = 0xFF0A66C2,
-                iconKey = "linkedin",
-                desktopMode = false
+                iconKey = "reddit"
             )
             pkg.contains("youtube") || name.contains("youtube") -> PackageMetadata(
-                url = "https://m.youtube.com/",
                 category = "Social",
                 color = 0xFFFF0000,
-                iconKey = "videocam",
-                desktopMode = false
-            )
-            pkg.contains("netflix") || name.contains("netflix") -> PackageMetadata(
-                url = "https://www.netflix.com/",
-                category = "Personal",
-                color = 0xFFE50914,
-                iconKey = "videocam",
-                desktopMode = false
-            )
-            pkg.contains("notion") || name.contains("notion") -> PackageMetadata(
-                url = "https://www.notion.so/",
-                category = "Trabajo",
-                color = 0xFF2F3437,
-                iconKey = "notion",
-                desktopMode = true
-            )
-            pkg.contains("github") || name.contains("github") -> PackageMetadata(
-                url = "https://github.com/login",
-                category = "Trabajo",
-                color = 0xFF6E5494,
-                iconKey = "github",
-                desktopMode = false
-            )
-            pkg.contains("binance") || name.contains("binance") || pkg.contains("crypto") || name.contains("crypto") -> PackageMetadata(
-                url = "https://www.binance.com/",
-                category = "Finanzas",
-                color = 0xFFF0B90B,
-                iconKey = "crypto",
-                desktopMode = true
+                iconKey = "videocam"
             )
             pkg.contains("gmail") || pkg.contains("google.android.gm") || name.contains("gmail") -> PackageMetadata(
-                url = "https://mail.google.com/",
                 category = "Trabajo",
                 color = 0xFFEA4335,
-                iconKey = "email",
-                desktopMode = false
-            )
-            pkg.contains("bank") || pkg.contains("banc") || name.contains("banc") || name.contains("bank") -> PackageMetadata(
-                url = "https://m.google.com",
-                category = "Finanzas",
-                color = 0xFF10B981,
-                iconKey = "crypto",
-                desktopMode = false
+                iconKey = "email"
             )
             else -> PackageMetadata(
-                url = "https://m.google.com",
                 category = "Personal",
                 color = 0xFF06B6D4,
-                iconKey = "apps",
-                desktopMode = false
+                iconKey = "apps"
             )
         }
     }
 
     private data class PackageMetadata(
-        val url: String,
         val category: String,
         val color: Long,
-        val iconKey: String,
-        val desktopMode: Boolean
+        val iconKey: String
     )
 }

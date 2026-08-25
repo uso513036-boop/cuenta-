@@ -114,7 +114,7 @@ fun SplitViewSandbox(
                     }
                 }
 
-                SandboxWebView(
+                NativeAppContainer(
                     profile = topProfile,
                     modifier = Modifier.weight(1f),
                     onCloseSandbox = onExitSplitMode
@@ -170,7 +170,7 @@ fun SplitViewSandbox(
                     }
                 }
 
-                SandboxWebView(
+                NativeAppContainer(
                     profile = bottomProfile,
                     modifier = Modifier.weight(1f),
                     onCloseSandbox = onExitSplitMode

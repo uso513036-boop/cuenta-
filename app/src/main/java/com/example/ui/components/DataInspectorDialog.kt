@@ -186,25 +186,25 @@ fun DataInspectorDialog(
                     ) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
-                                text = "Detalles de Sandbox",
+                                text = "Detalles de Contenedor Aislado",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
 
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("URL Destino:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(profile.targetUrl, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                                Text("Paquete APK:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(profile.packageName ?: "com.app.sandbox", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
                             }
 
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Agente de Usuario (UA):", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(profile.userAgentMode, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                Text("Entorno de Ejecución:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Nativo Aislado (MultiSpace Sandbox)", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                             }
 
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Modo Incógnito:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(if (profile.isIncognito) "Sí (Autolimpieza)" else "No (Persistente)", style = MaterialTheme.typography.bodySmall)
+                                Text("Aislamiento de Datos:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("SQLite / SharedPreferences Independientes", style = MaterialTheme.typography.bodySmall)
                             }
 
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
