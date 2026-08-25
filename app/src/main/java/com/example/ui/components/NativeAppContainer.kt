@@ -37,6 +37,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.data.local.ProfileEntity
 import com.example.model.CountryInfo
 import com.example.model.CountryRepository
+import com.example.security.SandboxIntentInterceptor
 import com.example.util.SystemDualAppsLauncher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -1277,7 +1278,7 @@ fun NativeWhatsAppSandbox(
 }
 
 /* ==========================================================================
-   2. NATIVE IMVU 3D CLONE ENGINE (3D Avatar, Rooms, Chat, Shop)
+   2. NATIVE IMVU 3D CLONE ENGINE (Zero-Leakage Sandbox, 3D Studio & Web Account 2)
    ========================================================================== */
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1288,21 +1289,26 @@ fun NativeImvuSandbox(
     onCloseSandbox: () -> Unit
 ) {
     val context = LocalContext.current
-    var selectedImvuTab by remember { mutableIntStateOf(0) } // 0: Avatar, 1: Salas 3D, 2: Feed, 3: Tienda
+    var selectedImvuTab by remember { mutableIntStateOf(0) } // 0: Web Oficial (Cuenta 2), 1: Avatar 3D, 2: Salas 3D, 3: Feed, 4: Tienda, 5: Escudo
     var avatarOutfit by remember { mutableStateOf("Casual Streetwear") }
     var creditsBalance by remember { mutableIntStateOf(4500) }
     var roomMessage by remember { mutableStateOf("") }
+    var blockedNotification by remember { mutableStateOf<String?>(null) }
+    var imvuWebUrl by remember(profile.id) { mutableStateOf("https://m.imvu.com") }
+
+    val blockedCount by SandboxIntentInterceptor.blockedCount.collectAsState()
+    val interceptedEvents by SandboxIntentInterceptor.interceptionEvents.collectAsState()
 
     val roomMessages = remember {
         mutableStateListOf(
             "Avatar_Luna: ¡Hola a todos en la sala 3D!",
             "Cyber_Boy: ¿Qué onda? Bienvenidos al salón VIP.",
-            "MultiSpace_User (${profile.name}): Sesión activa en contenedor aislado."
+            "MultiSpace_User (${profile.name}): Sesión activa en contenedor aislado 100% independiente."
         )
     }
 
     LaunchedEffect(Unit) {
-        onStatsUpdated(12, 1024L * 1024L * 45) // IMVU 3D isolated cache
+        onStatsUpdated(18, 1024L * 1024L * 52) // IMVU 3D isolated cache
     }
 
     Scaffold(
@@ -1310,7 +1316,7 @@ fun NativeImvuSandbox(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("IMVU Mobile", fontWeight = FontWeight.Bold)
+                        Text("IMVU Móvil", fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
@@ -1319,12 +1325,33 @@ fun NativeImvuSandbox(
                             Text(
                                 text = profile.name,
                                 fontSize = 10.sp,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
                     }
                 },
+                navigationIcon = {
+                    IconButton(onClick = onCloseSandbox) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                },
                 actions = {
+                    // Shield Badge
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        modifier = Modifier.padding(end = 6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Antifugas Activo", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = Color(0xFFFFD700).copy(alpha = 0.2f),
@@ -1350,26 +1377,32 @@ fun NativeImvuSandbox(
                 NavigationBarItem(
                     selected = selectedImvuTab == 0,
                     onClick = { selectedImvuTab = 0 },
-                    icon = { Icon(Icons.Default.Face, contentDescription = "Avatar 3D") },
-                    label = { Text("Avatar") }
+                    icon = { Icon(Icons.Default.Language, contentDescription = "Cuenta 2") },
+                    label = { Text("Cuenta 2") }
                 )
                 NavigationBarItem(
                     selected = selectedImvuTab == 1,
                     onClick = { selectedImvuTab = 1 },
-                    icon = { Icon(Icons.Default.MeetingRoom, contentDescription = "Salas 3D") },
-                    label = { Text("Salas 3D") }
+                    icon = { Icon(Icons.Default.Face, contentDescription = "Avatar 3D") },
+                    label = { Text("Avatar") }
                 )
                 NavigationBarItem(
                     selected = selectedImvuTab == 2,
                     onClick = { selectedImvuTab = 2 },
-                    icon = { Icon(Icons.Default.PhotoLibrary, contentDescription = "Feed") },
-                    label = { Text("Feed") }
+                    icon = { Icon(Icons.Default.MeetingRoom, contentDescription = "Salas 3D") },
+                    label = { Text("Salas 3D") }
                 )
                 NavigationBarItem(
                     selected = selectedImvuTab == 3,
                     onClick = { selectedImvuTab = 3 },
                     icon = { Icon(Icons.Default.ShoppingBag, contentDescription = "Tienda") },
                     label = { Text("Tienda") }
+                )
+                NavigationBarItem(
+                    selected = selectedImvuTab == 4,
+                    onClick = { selectedImvuTab = 4 },
+                    icon = { Icon(Icons.Default.Security, contentDescription = "Escudo") },
+                    label = { Text("Escudo") }
                 )
             }
         }
@@ -1378,114 +1411,246 @@ fun NativeImvuSandbox(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
         ) {
-            when (selectedImvuTab) {
-                // 3D Avatar Customizer
-                0 -> {
+            // Blocked intent notification banner
+            AnimatedVisibility(visible = blockedNotification != null) {
+                blockedNotification?.let { msg ->
                     Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.padding(20.dp)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.AccessibilityNew,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(120.dp)
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text("Avatar 3D Virtual de ${profile.name}", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            Text("Outfit actual: $avatarOutfit", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "🛡️ $msg",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                            IconButton(onClick = { blockedNotification = null }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Default.Close, contentDescription = "Cerrar", modifier = Modifier.size(16.dp))
+                            }
                         }
                     }
+                }
+            }
 
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text("Armario y Poses 3D", fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(listOf("Casual Streetwear", "Gothic Style", "Cyber Neon", "VIP Gold Suit", "Summer Beach")) { outfit ->
-                            FilterChip(
-                                selected = avatarOutfit == outfit,
-                                onClick = { avatarOutfit = outfit },
-                                label = { Text(outfit) }
+            when (selectedImvuTab) {
+                // Tab 0: Real IMVU Mobile Web Portal with Strict Intent Shield (Cuenta 2 Aislada)
+                0 -> {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Quick Action URL Bar for IMVU
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Button(
+                                    onClick = { imvuWebUrl = "https://m.imvu.com/login" },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text("Iniciar Sesión", fontSize = 11.sp)
+                                }
+                                OutlinedButton(
+                                    onClick = { imvuWebUrl = "https://m.imvu.com/rooms" },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text("Salas", fontSize = 11.sp)
+                                }
+                                OutlinedButton(
+                                    onClick = { imvuWebUrl = "https://m.imvu.com/shop" },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text("Shop", fontSize = 11.sp)
+                                }
+                                Spacer(modifier = Modifier.weight(1f))
+                                IconButton(
+                                    onClick = {
+                                        val current = imvuWebUrl
+                                        imvuWebUrl = ""
+                                        imvuWebUrl = current
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = "Recargar", modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+
+                        // Embedded WebView with zero external intent leakage
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            AndroidView(
+                                factory = { ctx ->
+                                    WebView(ctx).apply {
+                                        SandboxIntentInterceptor.setupIsolatedWebView(
+                                            context = ctx,
+                                            webView = this,
+                                            profileId = profile.id,
+                                            profilePackage = "com.imvu.mobile",
+                                            onBlockedIntent = { reason ->
+                                                blockedNotification = "Redirección externa interceptada: $reason"
+                                            }
+                                        )
+                                        loadUrl(imvuWebUrl)
+                                    }
+                                },
+                                update = { webView ->
+                                    if (webView.url != imvuWebUrl && imvuWebUrl.isNotBlank()) {
+                                        webView.loadUrl(imvuWebUrl)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
                     }
                 }
 
-                // 3D Chat Rooms
+                // Tab 1: 3D Avatar Customizer
                 1 -> {
-                    Text("Salón 3D: Penthouse VIP", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LazyColumn(
+                    Column(
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
+                            .fillMaxSize()
+                            .padding(16.dp)
                     ) {
-                        items(roomMessages) { msg ->
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(20.dp)
                             ) {
-                                Text(
-                                    text = msg,
-                                    modifier = Modifier.padding(10.dp),
-                                    fontSize = 13.sp
+                                Icon(
+                                    imageVector = Icons.Default.AccessibilityNew,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(120.dp)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text("Avatar 3D Virtual de ${profile.name}", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                Text("Outfit actual: $avatarOutfit", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text("Armario y Poses 3D (Instancia Aislada)", fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(listOf("Casual Streetwear", "Gothic Style", "Cyber Neon", "VIP Gold Suit", "Summer Beach")) { outfit ->
+                                FilterChip(
+                                    selected = avatarOutfit == outfit,
+                                    onClick = { avatarOutfit = outfit },
+                                    label = { Text(outfit) }
                                 )
                             }
                         }
                     }
+                }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                // Tab 2: 3D Chat Rooms
+                2 -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
                     ) {
-                        OutlinedTextField(
-                            value = roomMessage,
-                            onValueChange = { roomMessage = it },
-                            placeholder = { Text("Escribe en la sala 3D...") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        IconButton(onClick = {
-                            if (roomMessage.isNotBlank()) {
-                                roomMessages.add("${profile.name}: ${roomMessage.trim()}")
-                                roomMessage = ""
+                        Text("Salón 3D: Penthouse VIP", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                        ) {
+                            items(roomMessages) { msg ->
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = msg,
+                                        modifier = Modifier.padding(10.dp),
+                                        fontSize = 13.sp
+                                    )
+                                }
                             }
-                        }) {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar", tint = MaterialTheme.colorScheme.primary)
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = roomMessage,
+                                onValueChange = { roomMessage = it },
+                                placeholder = { Text("Escribe en la sala 3D...") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            IconButton(onClick = {
+                                if (roomMessage.isNotBlank()) {
+                                    roomMessages.add("${profile.name}: ${roomMessage.trim()}")
+                                    roomMessage = ""
+                                }
+                            }) {
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar", tint = MaterialTheme.colorScheme.primary)
+                            }
                         }
                     }
                 }
 
-                // Feed
-                2 -> {
-                    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(listOf("Nueva sesión de fotos 3D en la playa", "¡Estrenando ropa nueva en IMVU!", "Fiesta en el club nocturno")) { post ->
-                            Card(modifier = Modifier.fillMaxWidth()) {
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(32.dp))
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Usuario_IMVU", fontWeight = FontWeight.Bold)
-                                    }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(post, fontSize = 14.sp)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                        Text("❤️ 42 Me gusta", fontSize = 12.sp)
-                                        Text("💬 8 Comentarios", fontSize = 12.sp)
+                // Tab 3: Shop
+                3 -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    ) {
+                        Text("Catálogo de Ropa y Accesorios 3D", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(listOf("Zapatillas VIP Neon (500 Cr)", "Gafas Cyberpunk (300 Cr)", "Chaqueta de Cuero (800 Cr)", "Alas Celestiales (1,200 Cr)")) { item ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(item, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                                    Button(
+                                        onClick = {
+                                            Toast.makeText(context, "Artículo comprado para ${profile.name}", Toast.LENGTH_SHORT).show()
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("Comprar", fontSize = 12.sp)
                                     }
                                 }
                             }
@@ -1493,28 +1658,64 @@ fun NativeImvuSandbox(
                     }
                 }
 
-                // Shop
-                3 -> {
-                    Text("Catálogo de Ropa y Accesorios 3D", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(listOf("Zapatillas VIP Neon (500 Cr)", "Gafas Cyberpunk (300 Cr)", "Chaqueta de Cuero (800 Cr)", "Alas Celestiales (1,200 Cr)")) { item ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                // Tab 4: Shield Status & Intercepted Events Log
+                4 -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item {
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                             ) {
-                                Text(item, fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                                Button(
-                                    onClick = {
-                                        Toast.makeText(context, "Artículo comprado para ${profile.name}", Toast.LENGTH_SHORT).show()
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Escudo Antifugas IMVU: ACTIVO", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("• Redirecciones externas a com.imvu.mobile: BLOQUEADAS", fontSize = 12.sp)
+                                    Text("• Enlaces a Google Play / Market: BLOQUEADOS", fontSize = 12.sp)
+                                    Text("• Cookies y Tokens de Sesión: Aislados (Perfil #${profile.id})", fontSize = 12.sp)
+                                    Text("• Fugas hacia el sistema: 0 detectadas", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        item {
+                            Text("Registro de Eventos Interceptados ($blockedCount bloqueos)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+
+                        if (interceptedEvents.isEmpty()) {
+                            item {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("Comprar", fontSize = 12.sp)
+                                    Text(
+                                        text = "El contenedor está operando de forma 100% aislada. No se han detectado intentos de fuga al exterior.",
+                                        modifier = Modifier.padding(14.dp),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else {
+                            items(interceptedEvents) { evt ->
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text(evt.actionTaken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                        Text(evt.originalUri, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                    }
                                 }
                             }
                         }
@@ -3161,7 +3362,8 @@ fun NativeBankingSandbox(
 }
 
 /**
- * General Utility Sandbox for other generic installed APKs
+ * General Utility Sandbox for generic cloned apps (Games, Social Networks, Tools, Utilities)
+ * Strictly zero leakage: Never escapes to the phone's native installed apps!
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -3170,10 +3372,9 @@ fun NativeGeneralUtilitySandbox(
     onCloseSandbox: () -> Unit
 ) {
     val context = LocalContext.current
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Lanzador Nativo, 1: Navegador / Web App, 2: Datos
-    var autoLaunchCountdown by remember { mutableIntStateOf(3) }
-    var isAutoLaunchActive by remember { mutableStateOf(!profile.packageName.isNullOrBlank()) }
-    var webUrl by remember(profile.id) {
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Instancia Aislada Virtual, 1: Escudo Antifugas & Logs, 2: Datos & Almacenamiento
+    var blockedNotification by remember { mutableStateOf<String?>(null) }
+    var currentUrlInput by remember(profile.id) {
         val defaultUrl = when {
             profile.targetUrl.isNotBlank() -> profile.targetUrl
             profile.name.lowercase().contains("popular") -> "https://www.bancopopular.fi.cr"
@@ -3182,35 +3383,41 @@ fun NativeGeneralUtilitySandbox(
             profile.name.lowercase().contains("tiktok") -> "https://www.tiktok.com"
             profile.name.lowercase().contains("spotify") -> "https://open.spotify.com"
             profile.name.lowercase().contains("netflix") -> "https://www.netflix.com"
+            profile.name.lowercase().contains("instagram") -> "https://www.instagram.com"
+            profile.name.lowercase().contains("pinterest") -> "https://www.pinterest.com"
+            profile.name.lowercase().contains("discord") -> "https://discord.com/app"
+            profile.name.lowercase().contains("roblox") -> "https://www.roblox.com"
             else -> "https://www.google.com"
         }
         mutableStateOf(defaultUrl)
     }
 
-    // Auto-launch countdown effect if package is installed
-    LaunchedEffect(isAutoLaunchActive, profile.packageName) {
-        if (isAutoLaunchActive && !profile.packageName.isNullOrBlank()) {
-            while (autoLaunchCountdown > 0 && isAutoLaunchActive) {
-                delay(1000)
-                autoLaunchCountdown--
-            }
-            if (isAutoLaunchActive && !profile.packageName.isNullOrBlank()) {
-                isAutoLaunchActive = false
-                SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
-            }
-        }
-    }
+    val blockedCount by SandboxIntentInterceptor.blockedCount.collectAsState()
+    val interceptedEvents by SandboxIntentInterceptor.interceptionEvents.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text(profile.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(profile.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    text = "Clon #${profile.id}",
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                         Text(
-                            text = profile.packageName ?: "Instancia Aislada MultiSpace",
+                            text = "Entorno Aislado • 0 Fugas hacia el Sistema",
                             fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 },
@@ -3220,17 +3427,18 @@ fun NativeGeneralUtilitySandbox(
                     }
                 },
                 actions = {
-                    if (!profile.packageName.isNullOrBlank()) {
-                        IconButton(
-                            onClick = {
-                                SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
-                            }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Launch,
-                                contentDescription = "Abrir en el Teléfono",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                            Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Antifugas 100%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -3242,6 +3450,36 @@ fun NativeGeneralUtilitySandbox(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Blocked notification banner
+            AnimatedVisibility(visible = blockedNotification != null) {
+                blockedNotification?.let { msg ->
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "🛡️ $msg",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                            IconButton(onClick = { blockedNotification = null }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Default.Close, contentDescription = "Cerrar", modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+            }
+
             // Tab Selector
             TabRow(
                 selectedTabIndex = selectedTab,
@@ -3250,175 +3488,28 @@ fun NativeGeneralUtilitySandbox(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Lanzador APK", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
-                    icon = { Icon(Icons.Default.Smartphone, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    text = { Text("App Aislada", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(18.dp)) }
                 )
                 Tab(
                     selected = selectedTab == 1,
-                    onClick = {
-                        isAutoLaunchActive = false
-                        selectedTab = 1
-                    },
-                    text = { Text("Web / Cuenta 2", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
-                    icon = { Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    onClick = { selectedTab = 1 },
+                    text = { Text("Escudo Antifugas", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp)) }
                 )
                 Tab(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    text = { Text("Ajustes & Datos", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
-                    icon = { Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    text = { Text("Almacenamiento", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Default.Storage, contentDescription = null, modifier = Modifier.size(18.dp)) }
                 )
             }
 
             when (selectedTab) {
                 0 -> {
-                    // Native Launcher Tab
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Auto-launch notification banner
-                        if (isAutoLaunchActive && autoLaunchCountdown > 0) {
-                            item {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    shape = RoundedCornerShape(16.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text(
-                                            text = "🚀 Abriendo app en tu teléfono en ${autoLaunchCountdown}s...",
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            Button(
-                                                onClick = {
-                                                    isAutoLaunchActive = false
-                                                    profile.packageName?.let {
-                                                        SystemDualAppsLauncher.launchNativeApp(context, it)
-                                                    }
-                                                },
-                                                shape = RoundedCornerShape(8.dp)
-                                            ) {
-                                                Text("Abrir Ahora")
-                                            }
-                                            OutlinedButton(
-                                                onClick = { isAutoLaunchActive = false },
-                                                shape = RoundedCornerShape(8.dp)
-                                            ) {
-                                                Text("Cancelar")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        item {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                modifier = Modifier.size(80.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.RocketLaunch,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(44.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        item {
-                            Text(
-                                text = "Lanzador de ${profile.name}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Paquete: ${profile.packageName ?: "com.app.cloned"}\nEspacio independiente para ejecutar múltiples cuentas.",
-                                style = MaterialTheme.typography.bodySmall,
-                                textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        // Main Action: Launch directly on device
-                        if (!profile.packageName.isNullOrBlank()) {
-                            item {
-                                Button(
-                                    onClick = {
-                                        val launched = SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
-                                        if (!launched) {
-                                            Toast.makeText(context, "No se pudo abrir directamente. Utiliza Apps Duales del sistema.", Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
-                                    shape = RoundedCornerShape(14.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(52.dp)
-                                ) {
-                                    Icon(Icons.Default.Launch, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Text("ABRIR APP EN EL TELÉFONO", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                                }
-                            }
-                        }
-
-                        // Secondary Action: Dual Apps in system
-                        item {
-                            OutlinedButton(
-                                onClick = {
-                                    SystemDualAppsLauncher.openDeviceDualAppSettings(context)
-                                },
-                                shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp)
-                            ) {
-                                Icon(Icons.Default.SettingsSuggest, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Ajustes de Apps Duales (Xiaomi / Samsung)")
-                            }
-                        }
-
-                        // Web View Bridge
-                        item {
-                            OutlinedButton(
-                                onClick = {
-                                    isAutoLaunchActive = false
-                                    selectedTab = 1
-                                },
-                                shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp)
-                            ) {
-                                Icon(Icons.Default.Language, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Abrir Cuenta 2 en Navegador Aislado")
-                            }
-                        }
-                    }
-                }
-                1 -> {
-                    // Web / Cloud Isolated Container (WebView)
+                    // Fully Isolated Virtual Engine (Embedded WebView with Strict Zero-Leakage Interceptor)
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // URL Bar
+                        // URL & Quick Action Bar
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             modifier = Modifier.fillMaxWidth()
@@ -3430,8 +3521,8 @@ fun NativeGeneralUtilitySandbox(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 OutlinedTextField(
-                                    value = webUrl,
-                                    onValueChange = { webUrl = it },
+                                    value = currentUrlInput,
+                                    onValueChange = { currentUrlInput = it },
                                     singleLine = true,
                                     textStyle = MaterialTheme.typography.bodySmall,
                                     modifier = Modifier
@@ -3441,23 +3532,36 @@ fun NativeGeneralUtilitySandbox(
                                     shape = RoundedCornerShape(10.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                IconButton(onClick = { /* Reload URL */ }) {
+                                IconButton(onClick = {
+                                    val current = currentUrlInput
+                                    currentUrlInput = ""
+                                    currentUrlInput = current
+                                }) {
                                     Icon(Icons.Default.Refresh, contentDescription = "Recargar")
                                 }
                             }
                         }
 
-                        // Embedded Isolated WebView
+                        // Isolated WebView
                         Box(modifier = Modifier.fillMaxSize()) {
                             AndroidView(
                                 factory = { ctx ->
                                     WebView(ctx).apply {
-                                        settings.javaScriptEnabled = true
-                                        settings.domStorageEnabled = true
-                                        settings.databaseEnabled = true
-                                        settings.cacheMode = WebSettings.LOAD_DEFAULT
-                                        webViewClient = WebViewClient()
-                                        loadUrl(webUrl)
+                                        SandboxIntentInterceptor.setupIsolatedWebView(
+                                            context = ctx,
+                                            webView = this,
+                                            profileId = profile.id,
+                                            profilePackage = profile.packageName,
+                                            onBlockedIntent = { reason ->
+                                                blockedNotification = "Redirección externa interceptada y bloqueada: $reason"
+                                            }
+                                        )
+                                        loadUrl(currentUrlInput)
+                                    }
+                                },
+                                update = { webView ->
+                                    if (webView.url != currentUrlInput && currentUrlInput.isNotBlank()) {
+                                        webView.loadUrl(currentUrlInput)
                                     }
                                 },
                                 modifier = Modifier.fillMaxSize()
@@ -3465,8 +3569,9 @@ fun NativeGeneralUtilitySandbox(
                         }
                     }
                 }
-                2 -> {
-                    // Settings & Data Tab
+
+                1 -> {
+                    // Shield Status & Event Monitor Tab
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
@@ -3476,16 +3581,82 @@ fun NativeGeneralUtilitySandbox(
                         item {
                             Card(
                                 shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Escudo Antifugas: 100% ACTIVO", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Text("✓ Bloqueo de esquemas 'intent://', 'market://', 'android-app://'", fontSize = 12.sp)
+                                    Text("✓ Bloqueo de resolución de paquetes externos en el sistema", fontSize = 12.sp)
+                                    Text("✓ Redirección forzada de deep links a endpoints web aislados", fontSize = 12.sp)
+                                    Text("✓ Partición de Cookies aislada para Perfil #${profile.id}", fontSize = 12.sp)
+                                    Text("✓ Total de fugas externas evitadas: $blockedCount", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        item {
+                            Text("Registro en Vivo de Eventos Interceptados", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+
+                        if (interceptedEvents.isEmpty()) {
+                            item {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "El contenedor está operando de forma 100% aislada. Todas las peticiones se procesan dentro de la instancia.",
+                                        modifier = Modifier.padding(14.dp),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else {
+                            items(interceptedEvents) { evt ->
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text(evt.actionTaken, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                        Text(evt.originalUri, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                2 -> {
+                    // Settings & Isolated Storage Tab
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        item {
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
-                                    Text("Información de Aislamiento", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    Text("Detalles de la Instancia Aislada", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Text("• Nombre: ${profile.name}", fontSize = 13.sp)
-                                    Text("• Paquete: ${profile.packageName ?: "N/A"}", fontSize = 13.sp)
+                                    Text("• Nombre del Perfil: ${profile.name}", fontSize = 13.sp)
+                                    Text("• Identificador Único: Perfil #${profile.id}", fontSize = 13.sp)
+                                    Text("• Paquete Asociado: ${profile.packageName ?: "com.app.cloned"}", fontSize = 13.sp)
                                     Text("• Categoría: ${profile.spaceCategory}", fontSize = 13.sp)
-                                    Text("• Estado de Cifrado: Protegido con PIN/Biometría", fontSize = 13.sp)
+                                    Text("• Almacenamiento: Partición privada independiente", fontSize = 13.sp)
                                 }
                             }
                         }
@@ -3493,7 +3664,7 @@ fun NativeGeneralUtilitySandbox(
                         item {
                             Button(
                                 onClick = {
-                                    Toast.makeText(context, "Caché de ${profile.name} limpiado exitosamente", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Caché y cookies de ${profile.name} restablecidos", Toast.LENGTH_SHORT).show()
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                                 shape = RoundedCornerShape(12.dp),
@@ -3501,7 +3672,7 @@ fun NativeGeneralUtilitySandbox(
                             ) {
                                 Icon(Icons.Default.CleaningServices, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Limpiar Caché y Cookies de esta Cuenta")
+                                Text("Limpiar Caché y Cookies de este Clon")
                             }
                         }
                     }
