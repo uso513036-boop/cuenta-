@@ -36,9 +36,15 @@ object CountryRepository {
         CountryInfo("CU", "+53", "Cuba", "🇨🇺"),
         CountryInfo("BR", "+55", "Brasil", "🇧🇷"),
 
-        // North America
+        // North America & Caribbean
         CountryInfo("US", "+1", "Estados Unidos", "🇺🇸"),
         CountryInfo("CA", "+1", "Canadá", "🇨🇦"),
+        CountryInfo("DO", "+1809", "República Dominicana", "🇩🇴"),
+        CountryInfo("PR", "+1787", "Puerto Rico", "🇵🇷"),
+        CountryInfo("CU", "+53", "Cuba", "🇨🇺"),
+        CountryInfo("JM", "+1876", "Jamaica", "🇯🇲"),
+        CountryInfo("HT", "+509", "Haití", "🇭🇹"),
+        CountryInfo("TT", "+1868", "Trinidad y Tobago", "🇹🇹"),
 
         // Europe
         CountryInfo("ES", "+34", "España", "🇪🇸"),
@@ -60,8 +66,14 @@ object CountryRepository {
         CountryInfo("RO", "+40", "Rumanía", "🇷🇴"),
         CountryInfo("GR", "+30", "Grecia", "🇬🇷"),
         CountryInfo("CZ", "+420", "República Checa", "🇨🇿"),
+        CountryInfo("HU", "+36", "Hungría", "🇭🇺"),
         CountryInfo("UA", "+380", "Ucrania", "🇺🇦"),
         CountryInfo("RU", "+7", "Rusia", "🇷🇺"),
+        CountryInfo("TR", "+90", "Turquía", "🇹🇷"),
+        CountryInfo("HR", "+385", "Croacia", "🇭🇷"),
+        CountryInfo("RS", "+381", "Serbia", "🇷🇸"),
+        CountryInfo("BG", "+359", "Bulgaria", "🇧🇬"),
+        CountryInfo("SK", "+421", "Eslovaquia", "🇸🇰"),
 
         // Asia & Middle East
         CountryInfo("JP", "+81", "Japón", "🇯🇵"),
