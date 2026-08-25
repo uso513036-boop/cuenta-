@@ -1,0 +1,6 @@
+{
+  "name": "MultiSpace - Multi Cuentas",
+  "description": "Gestor de múltiples sesiones y cuentas con contenedor cifrado, aislamiento seguro de datos y alternancia instantánea de perfiles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
