@@ -30,6 +30,15 @@ class MultiSpaceViewModel(application: Application) : AndroidViewModel(applicati
     private val _isDecoyMode = MutableStateFlow(false)
     val isDecoyMode: StateFlow<Boolean> = _isDecoyMode.asStateFlow()
 
+    // Always Open In Sandbox Preference (Default true)
+    private val _alwaysOpenInContainer = MutableStateFlow(securityPreferences.isAlwaysOpenInContainer)
+    val alwaysOpenInContainer: StateFlow<Boolean> = _alwaysOpenInContainer.asStateFlow()
+
+    fun setAlwaysOpenInContainer(enabled: Boolean) {
+        securityPreferences.isAlwaysOpenInContainer = enabled
+        _alwaysOpenInContainer.value = enabled
+    }
+
     // Navigation & Screen State
     private val _screenState = MutableStateFlow<ScreenState>(ScreenState.Dashboard)
     val screenState: StateFlow<ScreenState> = _screenState.asStateFlow()

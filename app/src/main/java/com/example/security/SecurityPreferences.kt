@@ -16,8 +16,13 @@ class SecurityPreferences(context: Context) {
         private const val KEY_AUTO_LOCK_MINUTES = "auto_lock_minutes"
         private const val KEY_WIPE_ON_EXIT = "wipe_on_exit"
         private const val KEY_SCREENSHOT_PROTECTION = "screenshot_protection"
+        private const val KEY_ALWAYS_OPEN_CONTAINER = "always_open_container"
         private const val KEY_IS_LOCKED = "is_locked"
     }
+
+    var isAlwaysOpenInContainer: Boolean
+        get() = prefs.getBoolean(KEY_ALWAYS_OPEN_CONTAINER, true)
+        set(value) = prefs.edit().putBoolean(KEY_ALWAYS_OPEN_CONTAINER, value).apply()
 
     var isPinEnabled: Boolean
         get() = prefs.getBoolean(KEY_PIN_ENABLED, false)

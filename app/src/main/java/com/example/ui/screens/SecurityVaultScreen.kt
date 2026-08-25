@@ -277,6 +277,35 @@ fun SecurityVaultScreen(
 
                     Divider(modifier = Modifier.padding(vertical = 12.dp))
 
+                    var isAlwaysOpenInContainer by remember { mutableStateOf(secPrefs.isAlwaysOpenInContainer) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Abrir directo en Contenedor (Sin Menú)",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Lanza las apps clonadas directamente en su sandbox aislado sin diálogos del sistema.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isAlwaysOpenInContainer,
+                            onCheckedChange = {
+                                isAlwaysOpenInContainer = it
+                                viewModel.setAlwaysOpenInContainer(it)
+                            }
+                        )
+                    }
+
+                    Divider(modifier = Modifier.padding(vertical = 12.dp))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,

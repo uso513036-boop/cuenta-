@@ -31,6 +31,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ProfileEntity
+import com.example.model.CountryInfo
+import com.example.model.CountryRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -133,8 +135,11 @@ fun NativeWhatsAppSandbox(
         mutableStateOf(profile.dataUsageBytes > 0)
     }
     var setupStep by remember(profile.id) { mutableIntStateOf(1) } // 1: Welcome, 2: Phone, 3: OTP, 4: Name
-    var selectedCountryCode by remember { mutableStateOf("+34") }
-    var selectedCountryName by remember { mutableStateOf("España") }
+    val initialCountry = remember { CountryRepository.detectDeviceCountry(context) }
+    var selectedCountry by remember { mutableStateOf(initialCountry) }
+    var selectedCountryCode by remember { mutableStateOf(initialCountry.dialCode) }
+    var selectedCountryName by remember { mutableStateOf("${initialCountry.flagEmoji} ${initialCountry.name}") }
+    var showCountryPicker by remember { mutableStateOf(false) }
     var inputPhoneNumber by remember { mutableStateOf("") }
     var inputOtpCode by remember { mutableStateOf("") }
     var userDisplayName by remember { mutableStateOf(profile.name) }
@@ -314,30 +319,68 @@ fun NativeWhatsAppSandbox(
 
                         Spacer(modifier = Modifier.height(28.dp))
 
-                        // Country Selector
+                        // Interactive Country Selector
                         Surface(
                             color = waSurface,
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { showCountryPicker = true }
+                                .testTag("wa_country_picker_trigger")
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    .padding(horizontal = 16.dp, vertical = 16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(selectedCountryName, color = Color.White, fontWeight = FontWeight.Medium)
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = waPrimary)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = selectedCountry.flagEmoji,
+                                        fontSize = 22.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = selectedCountry.name,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 15.sp
+                                    )
+                                }
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = "Elegir país", tint = waPrimary)
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        if (showCountryPicker) {
+                            CountryPickerDialog(
+                                selectedCountry = selectedCountry,
+                                onCountrySelected = { country ->
+                                    selectedCountry = country
+                                    selectedCountryCode = country.dialCode
+                                    selectedCountryName = "${country.flagEmoji} ${country.name}"
+                                    showCountryPicker = false
+                                },
+                                onDismiss = { showCountryPicker = false },
+                                accentColor = waPrimary,
+                                containerColor = waSurface
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedTextField(
                                 value = selectedCountryCode,
-                                onValueChange = { selectedCountryCode = it },
+                                onValueChange = {
+                                    selectedCountryCode = it
+                                    val matched = CountryRepository.COUNTRIES.firstOrNull { c -> c.dialCode == it }
+                                    if (matched != null) {
+                                        selectedCountry = matched
+                                        selectedCountryName = "${matched.flagEmoji} ${matched.name}"
+                                    }
+                                },
                                 label = { Text("Código") },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedTextColor = Color.White,
@@ -345,14 +388,14 @@ fun NativeWhatsAppSandbox(
                                     focusedBorderColor = waPrimary,
                                     unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
                                 ),
-                                modifier = Modifier.width(90.dp)
+                                modifier = Modifier.width(100.dp).testTag("wa_country_code_input")
                             )
 
                             OutlinedTextField(
                                 value = inputPhoneNumber,
                                 onValueChange = { inputPhoneNumber = it },
                                 label = { Text("Número de teléfono") },
-                                placeholder = { Text("612 345 678", color = Color.Gray) },
+                                placeholder = { Text(if (selectedCountry.code == "CR") "8888 8888" else "612 345 678", color = Color.Gray) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedTextColor = Color.White,
@@ -1478,8 +1521,29 @@ fun NativeImvuSandbox(
 }
 
 /* ==========================================================================
-   3. NATIVE TELEGRAM SANDBOX
+   3. NATIVE TELEGRAM SANDBOX (Full Native UI, Registration & Cloud Sandbox)
    ========================================================================== */
+
+data class TelegramChatMessage(
+    val id: String = UUID.randomUUID().toString(),
+    val text: String,
+    val isOutgoing: Boolean,
+    val timestamp: String,
+    val isRead: Boolean = true
+)
+
+data class TelegramChat(
+    val id: String,
+    val title: String,
+    val isChannel: Boolean = false,
+    val isGroup: Boolean = false,
+    val avatarColor: Long,
+    val lastMessage: String,
+    val timestamp: String,
+    val unreadCount: Int = 0,
+    val isOnline: Boolean = false,
+    val messages: MutableList<TelegramChatMessage> = mutableListOf()
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1488,49 +1552,948 @@ fun NativeTelegramSandbox(
     onStatsUpdated: (cookies: Int, bytes: Long) -> Unit,
     onCloseSandbox: () -> Unit
 ) {
-    val tgBlue = Color(0xFF2AABEE)
-    LaunchedEffect(Unit) {
-        onStatsUpdated(8, 1024L * 1024L * 22)
-    }
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Telegram • ${profile.name}", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = tgBlue,
-                    titleContentColor = Color.White
+    // Persistent Setup State per Account Profile
+    var isRegistered by remember(profile.id) {
+        mutableStateOf(profile.dataUsageBytes > 0)
+    }
+    var setupStep by remember(profile.id) { mutableIntStateOf(1) } // 1: Welcome, 2: Phone, 3: OTP, 4: Name
+    val initialCountry = remember { CountryRepository.detectDeviceCountry(context) }
+    var selectedCountry by remember { mutableStateOf(initialCountry) }
+    var selectedCountryCode by remember { mutableStateOf(initialCountry.dialCode) }
+    var selectedCountryName by remember { mutableStateOf("${initialCountry.flagEmoji} ${initialCountry.name}") }
+    var showCountryPicker by remember { mutableStateOf(false) }
+    var inputPhoneNumber by remember { mutableStateOf("") }
+    var inputOtpCode by remember { mutableStateOf("") }
+    var userFirstName by remember { mutableStateOf(profile.name) }
+    var userLastName by remember { mutableStateOf("") }
+    var syncContacts by remember { mutableStateOf(true) }
+
+    var activeChat by remember { mutableStateOf<TelegramChat?>(null) }
+    var selectedFilterTab by remember { mutableIntStateOf(0) } // 0: Todos, 1: Privados, 2: Grupos, 3: Canales
+    var showNewChatDialog by remember { mutableStateOf(false) }
+    var showSearchField by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    // Seeded Telegram chats
+    val chats = remember(profile.id) {
+        mutableStateListOf(
+            TelegramChat(
+                id = "tg_saved",
+                title = "Mensajes Guardados",
+                avatarColor = 0xFF2AABEE,
+                lastMessage = "Almacenamiento en la nube aislado de esta cuenta.",
+                timestamp = "12:15",
+                unreadCount = 0,
+                isOnline = true,
+                messages = mutableListOf(
+                    TelegramChatMessage(text = "¡Bienvenido a tu nube personal en Telegram!", isOutgoing = false, timestamp = "12:10"),
+                    TelegramChatMessage(text = "Aquí puedes guardar notas, enlaces y archivos de forma privada.", isOutgoing = false, timestamp = "12:12"),
+                    TelegramChatMessage(text = "Almacenamiento en la nube aislado de esta cuenta.", isOutgoing = true, timestamp = "12:15")
+                )
+            ),
+            TelegramChat(
+                id = "tg_news",
+                title = "Telegram Noticias Oficial",
+                isChannel = true,
+                avatarColor = 0xFF3390EC,
+                lastMessage = "MultiSpace Sandbox ha activado la aceleración de hardware para cuentas clonadas.",
+                timestamp = "11:30",
+                unreadCount = 2,
+                messages = mutableListOf(
+                    TelegramChatMessage(text = "MultiSpace Sandbox ha activado la aceleración de hardware para cuentas clonadas.", isOutgoing = false, timestamp = "11:30")
+                )
+            ),
+            TelegramChat(
+                id = "tg_dev",
+                title = "Grupo de Soporte MultiSpace",
+                isGroup = true,
+                avatarColor = 0xFF8E44AD,
+                lastMessage = "El contenedor está 100% independiente.",
+                timestamp = "Ayer",
+                unreadCount = 0,
+                messages = mutableListOf(
+                    TelegramChatMessage(text = "Contenedor independiente inicializado correctamente.", isOutgoing = false, timestamp = "Ayer 15:20"),
+                    TelegramChatMessage(text = "El contenedor está 100% independiente.", isOutgoing = true, timestamp = "Ayer 15:22")
                 )
             )
+        )
+    }
+
+    val tgBlue = Color(0xFF2AABEE)
+    val tgDarkBg = Color(0xFF17212B)
+    val tgSurface = Color(0xFF242F3D)
+    val tgOutgoingBubble = Color(0xFF2B5278)
+    val tgIncomingBubble = Color(0xFF182533)
+
+    LaunchedEffect(isRegistered) {
+        if (isRegistered) {
+            onStatsUpdated(chats.size * 2, 1024L * 1024L * 24)
         }
-    ) { padding ->
+    }
+
+    // -------------------------------------------------------------
+    // TELEGRAM ONBOARDING / FRESH REGISTRATION FLOW
+    // -------------------------------------------------------------
+    if (!isRegistered) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
+                .background(tgDarkBg)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Chats y Canales Aislados", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Spacer(modifier = Modifier.height(12.dp))
-            listOf("Mensajes Guardados (Nube Aislada)", "Canal Noticias MultiSpace", "Grupo de Desarrollo").forEach { title ->
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+            when (setupStep) {
+                // Step 1: Start Messaging Screen
+                1 -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = tgBlue,
+                            modifier = Modifier.size(110.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Send,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(56.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(26.dp))
+
+                        Text(
+                            text = "Telegram",
+                            color = Color.White,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "La aplicación de mensajería más rápida del mundo.\nEs gratis y segura.",
+                            color = Color.White.copy(alpha = 0.75f),
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(28.dp))
+
+                        // Features Carousel info
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = tgSurface),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Bolt, contentDescription = null, tint = tgBlue, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text("Rápida", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                }
+                                Text("Entrega mensajes más rápido que cualquier otra aplicación.", color = Color.White.copy(alpha = 0.65f), fontSize = 12.sp, modifier = Modifier.padding(start = 30.dp, top = 2.dp))
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Shield, contentDescription = null, tint = tgBlue, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text("Segura", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                }
+                                Text("Chats protegidos en contenedor cifrado independiente.", color = Color.White.copy(alpha = 0.65f), fontSize = 12.sp, modifier = Modifier.padding(start = 30.dp, top = 2.dp))
+                            }
+                        }
+                    }
+
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Button(
+                            onClick = { setupStep = 2 },
+                            colors = ButtonDefaults.buttonColors(containerColor = tgBlue),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .testTag("tg_start_messaging_btn")
+                        ) {
+                            Text("EMPEZAR A CHATEAR", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        TextButton(
+                            onClick = onCloseSandbox,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Volver al Panel", color = Color.White.copy(alpha = 0.6f))
+                        }
+                    }
+                }
+
+                // Step 2: Country and Phone input
+                2 -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Tu número de teléfono",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Confirma el código de país e introduce tu número de teléfono para ${profile.name}.",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(28.dp))
+
+                        // Interactive Country Picker
+                        Surface(
+                            color = tgSurface,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { showCountryPicker = true }
+                                .testTag("tg_country_picker_trigger")
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = selectedCountry.flagEmoji,
+                                        fontSize = 22.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = selectedCountry.name,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 15.sp
+                                    )
+                                }
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = "Elegir país", tint = tgBlue)
+                            }
+                        }
+
+                        if (showCountryPicker) {
+                            CountryPickerDialog(
+                                selectedCountry = selectedCountry,
+                                onCountrySelected = { country ->
+                                    selectedCountry = country
+                                    selectedCountryCode = country.dialCode
+                                    selectedCountryName = "${country.flagEmoji} ${country.name}"
+                                    showCountryPicker = false
+                                },
+                                onDismiss = { showCountryPicker = false },
+                                accentColor = tgBlue,
+                                containerColor = tgSurface
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = selectedCountryCode,
+                                onValueChange = {
+                                    selectedCountryCode = it
+                                    val matched = CountryRepository.COUNTRIES.firstOrNull { c -> c.dialCode == it }
+                                    if (matched != null) {
+                                        selectedCountry = matched
+                                        selectedCountryName = "${matched.flagEmoji} ${matched.name}"
+                                    }
+                                },
+                                label = { Text("Código") },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = tgBlue,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                                ),
+                                modifier = Modifier.width(100.dp).testTag("tg_country_code_input")
+                            )
+
+                            OutlinedTextField(
+                                value = inputPhoneNumber,
+                                onValueChange = { inputPhoneNumber = it },
+                                label = { Text("Número de teléfono") },
+                                placeholder = { Text(if (selectedCountry.code == "CR") "8888 8888" else "612 345 678", color = Color.Gray) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = tgBlue,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                                ),
+                                modifier = Modifier.weight(1f).testTag("tg_phone_input")
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = syncContacts,
+                                onCheckedChange = { syncContacts = it },
+                                colors = CheckboxDefaults.colors(checkedColor = tgBlue)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Sincronizar contactos en este espacio",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            if (inputPhoneNumber.length < 5) {
+                                inputPhoneNumber = "8888 8888"
+                            }
+                            setupStep = 3
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = tgBlue),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .testTag("tg_phone_next_btn")
+                    ) {
+                        Text("CONTINUAR", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                // Step 3: Verification Code (SMS)
+                3 -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Código de activación",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Hemos enviado un código a $selectedCountryCode $inputPhoneNumber",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(28.dp))
+
+                        OutlinedTextField(
+                            value = inputOtpCode,
+                            onValueChange = {
+                                inputOtpCode = it.take(5)
+                                if (inputOtpCode.length == 5) {
+                                    setupStep = 4
+                                }
+                            },
+                            placeholder = { Text("- - - - -", color = Color.Gray) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = tgBlue,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                            ),
+                            textStyle = LocalTextStyle.current.copy(
+                                textAlign = TextAlign.Center,
+                                fontSize = 24.sp,
+                                letterSpacing = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            modifier = Modifier.width(220.dp).testTag("tg_otp_input")
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        TextButton(onClick = { inputOtpCode = "52914"; setupStep = 4 }) {
+                            Text("Autocompletar Código de Prueba (52914)", color = tgBlue, fontSize = 12.sp)
+                        }
+                    }
+
+                    Button(
+                        onClick = { setupStep = 4 },
+                        colors = ButtonDefaults.buttonColors(containerColor = tgBlue),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                    ) {
+                        Text("VERIFICAR", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                // Step 4: Profile Name
+                4 -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Tu información",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Introduce tu nombre y foto de perfil para esta cuenta.",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(28.dp))
+
+                        Surface(
+                            shape = CircleShape,
+                            color = tgSurface,
+                            modifier = Modifier.size(90.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = null,
+                                    tint = tgBlue,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        OutlinedTextField(
+                            value = userFirstName,
+                            onValueChange = { userFirstName = it },
+                            label = { Text("Nombre (requerido)") },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = tgBlue,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                            ),
+                            modifier = Modifier.fillMaxWidth().testTag("tg_name_input")
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = userLastName,
+                            onValueChange = { userLastName = it },
+                            label = { Text("Apellido (opcional)") },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = tgBlue,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            isRegistered = true
+                            Toast.makeText(context, "¡Telegram iniciado en contenedor independiente!", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = tgBlue),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .testTag("tg_finish_setup_btn")
+                    ) {
+                        Text("ENTRAR A TELEGRAM", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    } else {
+        // -------------------------------------------------------------
+        // ACTIVE NATIVE TELEGRAM INTERFACE
+        // -------------------------------------------------------------
+        if (activeChat == null) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            if (showSearchField) {
+                                OutlinedTextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    placeholder = { Text("Buscar mensajes o chats...") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = Color.Transparent,
+                                        unfocusedBorderColor = Color.Transparent
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            } else {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Telegram • ${profile.name}",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        fontSize = 17.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Surface(
+                                        color = Color.White.copy(alpha = 0.2f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = selectedCountry.flagEmoji,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = onCloseSandbox) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = { showSearchField = !showSearchField }) {
+                                Icon(
+                                    if (showSearchField) Icons.Default.Close else Icons.Default.Search,
+                                    contentDescription = "Buscar",
+                                    tint = Color.White
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = tgSurface)
+                    )
+                },
+                floatingActionButton = {
+                    FloatingActionButton(
+                        onClick = { showNewChatDialog = true },
+                        containerColor = tgBlue,
+                        contentColor = Color.White
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = "Nuevo Chat")
+                    }
+                },
+                containerColor = tgDarkBg
+            ) { padding ->
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
+                        .fillMaxSize()
+                        .padding(padding)
                 ) {
-                    Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Send, contentDescription = null, tint = tgBlue)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(title, fontWeight = FontWeight.Bold)
-                            Text("Sesión independiente", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // Category Tabs
+                    val tabs = listOf("Todos", "Privados", "Grupos", "Canales")
+                    ScrollableTabRow(
+                        selectedTabIndex = selectedFilterTab,
+                        containerColor = tgSurface,
+                        contentColor = tgBlue,
+                        edgePadding = 12.dp
+                    ) {
+                        tabs.forEachIndexed { index, tabName ->
+                            Tab(
+                                selected = selectedFilterTab == index,
+                                onClick = { selectedFilterTab = index },
+                                text = {
+                                    Text(
+                                        text = tabName,
+                                        color = if (selectedFilterTab == index) tgBlue else Color.White.copy(alpha = 0.6f),
+                                        fontWeight = if (selectedFilterTab == index) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            )
+                        }
+                    }
+
+                    val filteredChats = chats.filter { chat ->
+                        when (selectedFilterTab) {
+                            1 -> !chat.isGroup && !chat.isChannel
+                            2 -> chat.isGroup
+                            3 -> chat.isChannel
+                            else -> true
+                        } && (searchQuery.isBlank() || chat.title.contains(searchQuery, ignoreCase = true) || chat.lastMessage.contains(searchQuery, ignoreCase = true))
+                    }
+
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredChats, key = { it.id }) { chat ->
+                            Surface(
+                                color = Color.Transparent,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { activeChat = chat }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color(chat.avatarColor),
+                                        modifier = Modifier.size(52.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            if (chat.isChannel) {
+                                                Icon(Icons.Default.Campaign, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                            } else if (chat.isGroup) {
+                                                Icon(Icons.Default.Group, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                            } else if (chat.id == "tg_saved") {
+                                                Icon(Icons.Default.Bookmark, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                            } else {
+                                                Text(
+                                                    text = chat.title.take(1).uppercase(),
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 20.sp
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(14.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = chat.title,
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 16.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = chat.timestamp,
+                                                color = Color.White.copy(alpha = 0.5f),
+                                                fontSize = 12.sp
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = chat.lastMessage,
+                                                color = Color.White.copy(alpha = 0.65f),
+                                                fontSize = 13.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            if (chat.unreadCount > 0) {
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = tgBlue,
+                                                    modifier = Modifier.size(20.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Text(
+                                                            text = chat.unreadCount.toString(),
+                                                            color = Color.White,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                        }
+                    }
+                }
+            }
+        } else {
+            // Active Telegram Chat Screen
+            val currentChat = activeChat!!
+            var outgoingText by remember { mutableStateOf("") }
+            val listState = rememberLazyListState()
+
+            LaunchedEffect(currentChat.messages.size) {
+                if (currentChat.messages.isNotEmpty()) {
+                    listState.animateScrollToItem(currentChat.messages.size - 1)
+                }
+            }
+
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(currentChat.avatarColor),
+                                    modifier = Modifier.size(40.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(currentChat.title.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(currentChat.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                                    Text(
+                                        text = if (currentChat.isOnline) "en línea" else "visto recientemente",
+                                        fontSize = 11.sp,
+                                        color = if (currentChat.isOnline) tgBlue else Color.White.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = { activeChat = null }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = { Toast.makeText(context, "Llamada cifrada punto a punto", Toast.LENGTH_SHORT).show() }) {
+                                Icon(Icons.Default.Call, contentDescription = "Llamar", tint = Color.White)
+                            }
+                            IconButton(onClick = {}) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Más", tint = Color.White)
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = tgSurface)
+                    )
+                },
+                containerColor = tgDarkBg
+            ) { padding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                ) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(currentChat.messages, key = { it.id }) { msg ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = if (msg.isOutgoing) Arrangement.End else Arrangement.Start
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(
+                                        topStart = 14.dp,
+                                        topEnd = 14.dp,
+                                        bottomStart = if (msg.isOutgoing) 14.dp else 2.dp,
+                                        bottomEnd = if (msg.isOutgoing) 2.dp else 14.dp
+                                    ),
+                                    color = if (msg.isOutgoing) tgOutgoingBubble else tgIncomingBubble,
+                                    modifier = Modifier.widthIn(max = 280.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                                        Text(text = msg.text, color = Color.White, fontSize = 14.sp)
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Row(
+                                            modifier = Modifier.align(Alignment.End),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = msg.timestamp,
+                                                fontSize = 10.sp,
+                                                color = Color.White.copy(alpha = 0.5f)
+                                            )
+                                            if (msg.isOutgoing) {
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Icon(
+                                                    imageVector = Icons.Default.DoneAll,
+                                                    contentDescription = null,
+                                                    tint = tgBlue,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Input bar
+                    Surface(
+                        color = tgSurface,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { Toast.makeText(context, "Adjuntar archivo seguro", Toast.LENGTH_SHORT).show() }) {
+                                Icon(Icons.Default.AttachFile, contentDescription = "Adjuntar", tint = Color.White.copy(alpha = 0.7f))
+                            }
+
+                            OutlinedTextField(
+                                value = outgoingText,
+                                onValueChange = { outgoingText = it },
+                                placeholder = { Text("Mensaje...", color = Color.Gray) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            if (outgoingText.isNotBlank()) {
+                                IconButton(
+                                    onClick = {
+                                        val now = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                                        val newMsg = TelegramChatMessage(text = outgoingText.trim(), isOutgoing = true, timestamp = now)
+                                        currentChat.messages.add(newMsg)
+                                        outgoingText = ""
+
+                                        coroutineScope.launch {
+                                            delay(1000)
+                                            currentChat.messages.add(
+                                                TelegramChatMessage(
+                                                    text = "Mensaje sincronizado en el contenedor aislado de ${profile.name}.",
+                                                    isOutgoing = false,
+                                                    timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                                                )
+                                            )
+                                        }
+                                    }
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar", tint = tgBlue)
+                                }
+                            } else {
+                                IconButton(onClick = { Toast.makeText(context, "Mantén presionado para nota de voz", Toast.LENGTH_SHORT).show() }) {
+                                    Icon(Icons.Default.Mic, contentDescription = "Voz", tint = Color.White.copy(alpha = 0.7f))
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    if (showNewChatDialog) {
+        var newContactName by remember { mutableStateOf("") }
+        var newContactPhone by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showNewChatDialog = false },
+            title = { Text("Nuevo Chat en Telegram") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = newContactName,
+                        onValueChange = { newContactName = it },
+                        label = { Text("Nombre del contacto / canal") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newContactPhone,
+                        onValueChange = { newContactPhone = it },
+                        label = { Text("Teléfono o @usuario") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newContactName.isNotBlank()) {
+                            val newChat = TelegramChat(
+                                id = UUID.randomUUID().toString(),
+                                title = newContactName,
+                                avatarColor = 0xFF2AABEE,
+                                lastMessage = "Chat iniciado",
+                                timestamp = "Ahora",
+                                messages = mutableListOf(
+                                    TelegramChatMessage(text = "Chat iniciado en el sandbox.", isOutgoing = false, timestamp = "Ahora")
+                                )
+                            )
+                            chats.add(0, newChat)
+                            activeChat = newChat
+                        }
+                        showNewChatDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = tgBlue)
+                ) {
+                    Text("Crear Chat")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNewChatDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }
 
