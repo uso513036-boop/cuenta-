@@ -38,6 +38,7 @@ import com.example.model.AppCatalog
 import com.example.model.AppPreset
 import com.example.model.InstalledApp
 import com.example.model.InstalledAppScanner
+import com.example.util.SystemDualAppsLauncher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -102,6 +103,7 @@ fun AddCloneDialog(
     var isIncognito by remember { mutableStateOf(false) }
     var isPinLocked by remember { mutableStateOf(false) }
     var customPin by remember { mutableStateOf("") }
+    var selectedPackageName by remember { mutableStateOf<String?>(null) }
 
     // Load installed apps asynchronously
     LaunchedEffect(Unit) {
@@ -133,7 +135,7 @@ fun AddCloneDialog(
             tonalElevation = 6.dp,
             modifier = Modifier
                 .fillMaxWidth(0.94f)
-                .fillMaxHeight(0.90f)
+                .fillMaxHeight(0.92f)
                 .testTag("add_clone_dialog")
         ) {
             Column(
@@ -155,7 +157,7 @@ fun AddCloneDialog(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Selecciona una app de tu teléfono para crear un clon independiente",
+                            text = "Abre una 2ª sesión aislada con diseño de aplicación independiente",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -166,6 +168,43 @@ fun AddCloneDialog(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Cerrar",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Shortcut Banner for Device Native Dual Apps (Xiaomi / Samsung)
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        SystemDualAppsLauncher.openDeviceDualAppSettings(context)
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ElectricBolt,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "¿Prefieres clonar en el sistema? Toca para abrir Ajustes Duales del Móvil",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -208,6 +247,7 @@ fun AddCloneDialog(
                             selectedTab = 2
                             if (profileName.isEmpty()) profileName = "Mi App Clon"
                             if (appTitle.isEmpty()) appTitle = "App Personalizada"
+                            selectedPackageName = null
                         },
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -219,7 +259,7 @@ fun AddCloneDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Content Based on Tab
                 when (selectedTab) {
@@ -234,7 +274,7 @@ fun AddCloneDialog(
                             OutlinedTextField(
                                 value = appSearchQuery,
                                 onValueChange = { appSearchQuery = it },
-                                placeholder = { Text("Buscar en mis aplicaciones...") },
+                                placeholder = { Text("Buscar app instalada...") },
                                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                                 trailingIcon = {
                                     if (appSearchQuery.isNotEmpty()) {
@@ -261,7 +301,7 @@ fun AddCloneDialog(
                                         CircularProgressIndicator(modifier = Modifier.size(36.dp))
                                         Spacer(modifier = Modifier.height(10.dp))
                                         Text(
-                                            "Explorando apps instaladas en tu teléfono...",
+                                            "Explorando apps instaladas...",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -275,7 +315,7 @@ fun AddCloneDialog(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "No se encontraron aplicaciones con ese nombre.",
+                                        "No se encontraron aplicaciones.",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -299,13 +339,14 @@ fun AddCloneDialog(
                                                 .clickable {
                                                     selectedInstalledApp = app
                                                     selectedPreset = null
+                                                    selectedPackageName = app.packageName
                                                     profileName = "${app.appName} Clon 2"
                                                     appTitle = app.appName
                                                     targetUrl = app.suggestedUrl
                                                     selectedCategory = app.suggestedCategory
                                                     selectedColor = app.suggestedColor
                                                     selectedIconKey = app.suggestedIconKey
-                                                    isDesktopMode = app.recommendedDesktopUA
+                                                    isDesktopMode = false // Default to mobile app view
                                                 }
                                         ) {
                                             Row(
@@ -370,13 +411,14 @@ fun AddCloneDialog(
                                                         onClick = {
                                                             selectedInstalledApp = app
                                                             selectedPreset = null
+                                                            selectedPackageName = app.packageName
                                                             profileName = "${app.appName} Clon 2"
                                                             appTitle = app.appName
                                                             targetUrl = app.suggestedUrl
                                                             selectedCategory = app.suggestedCategory
                                                             selectedColor = app.suggestedColor
                                                             selectedIconKey = app.suggestedIconKey
-                                                            isDesktopMode = app.recommendedDesktopUA
+                                                            isDesktopMode = false
                                                         },
                                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                                         modifier = Modifier.height(34.dp)
@@ -418,13 +460,14 @@ fun AddCloneDialog(
                                         .clickable {
                                             selectedPreset = preset
                                             selectedInstalledApp = null
+                                            selectedPackageName = null
                                             profileName = "${preset.name} Clon 2"
                                             appTitle = preset.name
                                             targetUrl = preset.defaultUrl
                                             selectedCategory = if (preset.category in CATEGORIES) preset.category else "Personal"
                                             selectedColor = preset.defaultColor
                                             selectedIconKey = preset.iconKey
-                                            isDesktopMode = preset.recommendedDesktopUA
+                                            isDesktopMode = false
                                         }
                                 ) {
                                     Row(
@@ -504,7 +547,7 @@ fun AddCloneDialog(
                             OutlinedTextField(
                                 value = targetUrl,
                                 onValueChange = { targetUrl = it },
-                                label = { Text("URL o Dirección Web") },
+                                label = { Text("URL o Dirección") },
                                 placeholder = { Text("https://...") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
@@ -524,14 +567,25 @@ fun AddCloneDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = "⚙️ Configurar Clon Seleccionado: ${appTitle.ifEmpty { "Nueva App" }}",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.PhoneIphone, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Modo Aplicación: se abrirá a pantalla completa sin barra de navegador.",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
 
                         OutlinedTextField(
                             value = profileName,
@@ -585,26 +639,12 @@ fun AddCloneDialog(
                             }
                         }
 
-                        // Desktop Mode & PIN Switches
+                        // PIN Lock switch
                         Card(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             shape = RoundedCornerShape(14.dp)
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("Modo Escritorio (Desktop UA)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                        Text("Recomendado para WhatsApp Web o Discord", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                    Switch(checked = isDesktopMode, onCheckedChange = { isDesktopMode = it })
-                                }
-
-                                Divider(modifier = Modifier.padding(vertical = 6.dp))
-
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -633,7 +673,7 @@ fun AddCloneDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Bottom Action Buttons
                 Row(
@@ -669,7 +709,9 @@ fun AddCloneDialog(
                                 desktopMode = isDesktopMode,
                                 isIncognito = isIncognito,
                                 isPinLocked = isPinLocked,
-                                customPin = if (isPinLocked && customPin.isNotEmpty()) customPin else null
+                                customPin = if (isPinLocked && customPin.isNotEmpty()) customPin else null,
+                                packageName = selectedPackageName,
+                                launchMode = "APP_VIEW"
                             )
                             onConfirmAdd(finalProfile)
                         },
@@ -678,7 +720,7 @@ fun AddCloneDialog(
                     ) {
                         Icon(imageVector = Icons.Default.AddCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Crear Clon Seguro")
+                        Text("Crear Clon")
                     }
                 }
             }

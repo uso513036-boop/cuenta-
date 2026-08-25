@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,6 +36,7 @@ import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.CyanNeon
 import com.example.ui.theme.VioletVault
 import com.example.ui.viewmodel.MultiSpaceViewModel
+import com.example.util.SystemDualAppsLauncher
 
 private val CATEGORIES = listOf("Todos", "Personal", "Trabajo", "Privado", "Finanzas", "Social", "Comunidad")
 
@@ -44,6 +46,7 @@ fun DashboardScreen(
     viewModel: MultiSpaceViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val profiles by viewModel.filteredProfiles.collectAsState()
     val allProfiles by viewModel.allProfiles.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
@@ -538,10 +541,16 @@ fun DashboardScreen(
                                     Button(
                                         onClick = { viewModel.openSandbox(profile) },
                                         shape = RoundedCornerShape(12.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                                         modifier = Modifier.weight(1f).height(36.dp)
                                     ) {
-                                        Text("Abrir", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Icon(
+                                            imageVector = Icons.Default.Launch,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Abrir App", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
 
                                     Spacer(modifier = Modifier.width(6.dp))

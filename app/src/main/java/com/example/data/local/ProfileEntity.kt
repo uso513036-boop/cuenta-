@@ -25,5 +25,7 @@ data class ProfileEntity(
     val isFavorite: Boolean = false,
     val desktopMode: Boolean = false,
     val adBlockEnabled: Boolean = true,
-    val cookiesSnapshotJson: String = ""
+    val cookiesSnapshotJson: String = "",
+    val packageName: String? = null,
+    val launchMode: String = "APP_VIEW" // "APP_VIEW", "NATIVE_PACKAGE"
 )

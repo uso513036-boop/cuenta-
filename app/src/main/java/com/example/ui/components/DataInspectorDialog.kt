@@ -283,6 +283,20 @@ fun DataInspectorDialog(
                         color = MaterialTheme.colorScheme.primary
                     )
 
+                    if (!profile.packageName.isNullOrEmpty()) {
+                        Button(
+                            onClick = {
+                                com.example.util.SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Abrir en App Nativa del Teléfono", fontSize = 12.sp)
+                        }
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
