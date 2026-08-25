@@ -172,43 +172,6 @@ fun AddCloneDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Shortcut Banner for Device Native Dual Apps (Xiaomi / Samsung)
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().clickable {
-                        SystemDualAppsLauncher.openDeviceDualAppSettings(context)
-                    }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ElectricBolt,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "¿Prefieres clonar en el sistema? Toca para abrir Ajustes Duales del Móvil",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // Tabs: Phone Apps vs Catalog vs Custom
@@ -569,39 +532,6 @@ fun AddCloneDialog(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // If installed app from phone is selected, offer immediate native app actions
-                        if (selectedInstalledApp != null) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = {
-                                        SystemDualAppsLauncher.launchNativeApp(context, selectedInstalledApp!!.packageName)
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Lanzar Nativo", fontSize = 11.sp)
-                                }
-
-                                Button(
-                                    onClick = {
-                                        SystemDualAppsLauncher.openDeviceDualAppSettings(context)
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(Icons.Default.ElectricBolt, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Clon Xiaomi", fontSize = 11.sp)
-                                }
-                            }
-                        }
-
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(10.dp)
@@ -613,7 +543,7 @@ fun AddCloneDialog(
                                 Icon(Icons.Default.PhoneIphone, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Modo Aplicación: se abrirá a pantalla completa sin barra de navegador.",
+                                    text = "Espacio Multi-Cuenta Aislado: sesión y datos independientes.",
                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

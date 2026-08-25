@@ -128,6 +128,38 @@ class MultiSpaceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun cloneAgain(sourceProfile: ProfileEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentList = allProfiles.value
+            val baseName = sourceProfile.appName.ifBlank {
+                sourceProfile.name.replace(Regex(" (Cuenta|Clon) \\d+.*", RegexOption.IGNORE_CASE), "").trim()
+            }
+            val existingMatches = currentList.filter {
+                it.appName.equals(baseName, ignoreCase = true) ||
+                it.name.startsWith(baseName, ignoreCase = true) ||
+                it.targetUrl == sourceProfile.targetUrl
+            }
+            val nextNumber = existingMatches.size + 1
+
+            val newProfile = sourceProfile.copy(
+                id = 0,
+                name = "$baseName Cuenta $nextNumber",
+                appName = baseName,
+                createdAt = System.currentTimeMillis(),
+                lastAccessedAt = System.currentTimeMillis(),
+                cookieCount = 0,
+                dataUsageBytes = 0,
+                cookiesSnapshotJson = ""
+            )
+            val newId = repository.insertProfile(newProfile)
+            val inserted = repository.getProfileById(newId.toInt())
+            inserted?.let {
+                _activeProfileId.value = it.id
+                _screenState.value = ScreenState.SingleSandbox(it)
+            }
+        }
+    }
+
     fun updateProfile(profile: ProfileEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.updateProfile(profile)

@@ -164,23 +164,6 @@ fun SandboxWebView(
                             )
                         }
 
-                        // Direct Native App Shortcut if installed on phone
-                        if (!profile.packageName.isNullOrEmpty()) {
-                            IconButton(
-                                onClick = {
-                                    SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
-                                },
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PhoneAndroid,
-                                    contentDescription = "Abrir App Nativa",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-
                         // Reload
                         IconButton(
                             onClick = { webViewInstance?.reload() },

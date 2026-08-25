@@ -57,7 +57,6 @@ fun DashboardScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var showDeleteAllDialog by remember { mutableStateOf(false) }
     var inspectingProfile by remember { mutableStateOf<ProfileEntity?>(null) }
-    var quickLaunchProfile by remember { mutableStateOf<ProfileEntity?>(null) }
     var isSearchExpanded by remember { mutableStateOf(false) }
 
     // Summary calculations
@@ -235,9 +234,9 @@ fun DashboardScreen(
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // System Dual Apps Launcher Banner for Xiaomi / Android Native Cloning
+            // Multi-Cuentas Engine Banner
             Surface(
-                onClick = { SystemDualAppsLauncher.openDeviceDualAppSettings(context) },
+                onClick = { showAddDialog = true },
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier
@@ -256,7 +255,7 @@ fun DashboardScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ElectricBolt,
+                            imageVector = Icons.Default.Layers,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(20.dp)
@@ -265,22 +264,22 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Clonador Dual Oficial del Móvil",
+                            text = "Multi-Cuentas Paralelas Activo",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = "Duplica apps en Xiaomi/Samsung para tener 2 apps nativas reales",
+                            text = "Añade Cuenta 1, 2, 3 o 4 de WhatsApp, IMVU, redes y juegos",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                         )
                     }
                     Icon(
-                        imageVector = Icons.Default.ChevronRight,
+                        imageVector = Icons.Default.AddCircle,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -583,20 +582,14 @@ fun DashboardScreen(
 
                                 Spacer(modifier = Modifier.height(12.dp))
 
-                                // Action Buttons Row (Launch / Inspect)
+                                // Action Buttons Row (Launch / Clone / Inspect)
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Button(
-                                        onClick = {
-                                            if (!profile.packageName.isNullOrEmpty()) {
-                                                quickLaunchProfile = profile
-                                            } else {
-                                                viewModel.openSandbox(profile)
-                                            }
-                                        },
+                                        onClick = { viewModel.openSandbox(profile) },
                                         shape = RoundedCornerShape(12.dp),
                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                                         modifier = Modifier.weight(1f).height(36.dp)
@@ -607,27 +600,24 @@ fun DashboardScreen(
                                             modifier = Modifier.size(14.dp)
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Abrir App", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("Abrir", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
 
-                                    if (!profile.packageName.isNullOrEmpty()) {
-                                        IconButton(
-                                            onClick = {
-                                                SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
-                                            },
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(MaterialTheme.colorScheme.primaryContainer)
-                                                .testTag("launch_native_btn_${profile.id}")
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.PhoneAndroid,
-                                                contentDescription = "Lanzar App Nativa del Teléfono",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
+                                    // 1-Tap Clone Again (Create 2nd, 3rd, 4th account of this app)
+                                    IconButton(
+                                        onClick = { viewModel.cloneAgain(profile) },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(MaterialTheme.colorScheme.primaryContainer)
+                                            .testTag("clone_again_btn_${profile.id}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "Añadir otra cuenta (Clonar)",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
                                     }
 
                                     IconButton(
@@ -639,8 +629,8 @@ fun DashboardScreen(
                                             .testTag("inspect_btn_${profile.id}")
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Info,
-                                            contentDescription = "Inspeccionar Aislamiento",
+                                            imageVector = Icons.Default.MoreVert,
+                                            contentDescription = "Opciones y Datos",
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -696,154 +686,6 @@ fun DashboardScreen(
             dismissButton = {
                 TextButton(onClick = { showDeleteAllDialog = false }) {
                     Text("Cancelar")
-                }
-            }
-        )
-    }
-
-    // Quick Launch Modal Dialog (Native vs System Dual vs Sandbox)
-    quickLaunchProfile?.let { profile ->
-        AlertDialog(
-            onDismissRequest = { quickLaunchProfile = null },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.RocketLaunch,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
-                )
-            },
-            title = {
-                Text("¿Cómo deseas abrir ${profile.name}?", fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        "Elige la forma de ejecución para este clon:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    // Option 1: Native Phone App
-                    if (!profile.packageName.isNullOrEmpty()) {
-                        Surface(
-                            onClick = {
-                                quickLaunchProfile = null
-                                SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PhoneAndroid,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        "Abrir App Nativa Instalada",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                    Text(
-                                        "Ejecuta la app original instalada en tu teléfono",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Option 2: System Dual Apps (Xiaomi / Samsung)
-                    Surface(
-                        onClick = {
-                            quickLaunchProfile = null
-                            SystemDualAppsLauncher.openDeviceDualAppSettings(context)
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ElectricBolt,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Clonar en Sistema (Xiaomi / Móvil)",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Text(
-                                    "Crea un 2º icono nativo oficial en tu pantalla",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                                )
-                            }
-                        }
-                    }
-
-                    // Option 3: MultiSpace Isolated Sandbox
-                    Surface(
-                        onClick = {
-                            quickLaunchProfile = null
-                            viewModel.openSandbox(profile)
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Security,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Abrir en Espacio Aislado MultiSpace",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    "Sesión con cookies y aislamiento AES-256",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { quickLaunchProfile = null }) {
-                    Text("Cerrar")
                 }
             }
         )
