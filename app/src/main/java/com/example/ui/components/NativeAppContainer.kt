@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.ProfileEntity
 import com.example.model.CountryInfo
 import com.example.model.CountryRepository
+import com.example.util.SystemDualAppsLauncher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -2553,8 +2554,16 @@ fun NativeInstagramSandbox(
 }
 
 /* ==========================================================================
-   5. GENERIC NATIVE APP SANDBOX CONTAINER (For any APK / Package on Device)
+   5. GENERIC & BANKING NATIVE APP SANDBOX CONTAINER
    ========================================================================== */
+
+data class BankingTransaction(
+    val id: String = UUID.randomUUID().toString(),
+    val description: String,
+    val amount: String,
+    val date: String,
+    val isCredit: Boolean
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -2564,9 +2573,599 @@ fun NativeGenericAppSandbox(
     onCloseSandbox: () -> Unit
 ) {
     val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        onStatsUpdated(10, 1024L * 1024L * 25)
+    val pkg = profile.packageName?.lowercase() ?: ""
+    val name = profile.name.lowercase()
+
+    // Detect if this is a banking or financial application
+    val isBankingApp = remember(pkg, name) {
+        pkg.contains("banco") || pkg.contains("banca") || pkg.contains("bank") ||
+        pkg.contains("popular") || pkg.contains("bac") || pkg.contains("bcr") ||
+        pkg.contains("bbva") || pkg.contains("santander") || pkg.contains("scotia") ||
+        pkg.contains("davivienda") || pkg.contains("finan") || name.contains("banco") ||
+        name.contains("banca") || name.contains("bank")
     }
+
+    LaunchedEffect(Unit) {
+        onStatsUpdated(12, 1024L * 1024L * 28)
+    }
+
+    if (isBankingApp) {
+        NativeBankingSandbox(
+            profile = profile,
+            onCloseSandbox = onCloseSandbox
+        )
+    } else {
+        NativeGeneralUtilitySandbox(
+            profile = profile,
+            onCloseSandbox = onCloseSandbox
+        )
+    }
+}
+
+/**
+ * Full Native Banking Sandbox for cloned financial accounts (e.g. Banco Popular, BAC, BCR, etc.)
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NativeBankingSandbox(
+    profile: ProfileEntity,
+    onCloseSandbox: () -> Unit
+) {
+    val context = LocalContext.current
+    var isLoggedIn by remember(profile.id) { mutableStateOf(false) }
+    var identificationNumber by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var rememberUser by remember { mutableStateOf(true) }
+    var showSinpeTransferDialog by remember { mutableStateOf(false) }
+
+    // Account data for this clone
+    var colonesBalance by remember { mutableStateOf(1450000.0) }
+    var dollarsBalance by remember { mutableStateOf(2850.0) }
+
+    val transactions = remember {
+        mutableStateListOf(
+            BankingTransaction(description = "Transferencia SINPE Móvil", amount = "- ₡ 15,000", date = "Hoy 10:45", isCredit = false),
+            BankingTransaction(description = "Depósito Salario / Honorarios", amount = "+ ₡ 450,000", date = "Ayer 18:20", isCredit = true),
+            BankingTransaction(description = "Pago de Servicios Públicos", amount = "- ₡ 32,400", date = "23 Ago", isCredit = false),
+            BankingTransaction(description = "Transferencia Internacional", amount = "+ $ 500.00", date = "20 Ago", isCredit = true)
+        )
+    }
+
+    val bankPrimaryColor = Color(0xFF003865) // Deep Bank Navy
+    val bankAccentColor = Color(0xFF00A859) // Bank Green
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            text = profile.name,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Instancia Aislada • ${profile.packageName ?: "Banca Móvil"}",
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onCloseSandbox) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                    }
+                },
+                actions = {
+                    // Quick Action: Launch real APK directly on phone
+                    if (!profile.packageName.isNullOrBlank()) {
+                        IconButton(
+                            onClick = {
+                                val launched = SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
+                                if (!launched) {
+                                    Toast.makeText(context, "No se encontró el APK instalado. Usa el contenedor aislado.", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Launch,
+                                contentDescription = "Abrir APK del Teléfono",
+                                tint = Color.White
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = bankPrimaryColor)
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            // Direct launch banner at the top
+            if (!profile.packageName.isNullOrBlank()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Smartphone,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "¿Deseas abrir la app original instalada?",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
+                            },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Abrir App", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            if (!isLoggedIn) {
+                // Banking Login Screen (Isolated account)
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            shape = CircleShape,
+                            color = bankPrimaryColor.copy(alpha = 0.1f),
+                            modifier = Modifier.size(80.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.AccountBalance,
+                                    contentDescription = null,
+                                    tint = bankPrimaryColor,
+                                    modifier = Modifier.size(44.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Acceso a ${profile.name}",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Sesión cifrada y separada de la cuenta principal",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(2.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(20.dp),
+                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = identificationNumber,
+                                    onValueChange = { identificationNumber = it },
+                                    label = { Text("Número de Identificación / Cédula") },
+                                    placeholder = { Text("Ej: 1-1234-0567") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Badge, contentDescription = null)
+                                    },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                OutlinedTextField(
+                                    value = password,
+                                    onValueChange = { password = it },
+                                    label = { Text("Contraseña o Clave de Acceso") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Lock, contentDescription = null)
+                                    },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = rememberUser,
+                                        onCheckedChange = { rememberUser = it }
+                                    )
+                                    Text(
+                                        text = "Recordar datos en este clon",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+
+                                Button(
+                                    onClick = {
+                                        isLoggedIn = true
+                                        Toast.makeText(context, "Sesión iniciada en ${profile.name}", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = bankPrimaryColor),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp)
+                                ) {
+                                    Icon(Icons.Default.Login, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("INGRESAR A CUENTA 2", fontWeight = FontWeight.Bold)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        identificationNumber = "1-1823-0492"
+                                        password = "••••••••"
+                                        isLoggedIn = true
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.Fingerprint, contentDescription = null, tint = bankAccentColor)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Ingreso Rápido con Biometría", color = MaterialTheme.colorScheme.onSurface)
+                                }
+                            }
+                        }
+                    }
+
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Security, contentDescription = null, tint = bankAccentColor)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Entorno Aislado: Las credenciales, tokens y certificados de esta cuenta no interfieren con la app instalada en el sistema.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Logged In Dashboard
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // Balances Summary Card
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = bankPrimaryColor),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Cuenta de Ahorros Principal",
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 13.sp
+                                    )
+                                    Surface(
+                                        color = bankAccentColor,
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "ACTIVA",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = "₡ ${"%,.2f".format(Locale.US, colonesBalance)}",
+                                    color = Color.White,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Spacer(modifier = Modifier.height(14.dp))
+                                HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text("Cuenta Dólares ($)", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
+                                        Text("$ ${"%,.2f".format(Locale.US, dollarsBalance)}", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text("IBAN", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
+                                        Text("CR23 0151 •••• 8821", color = Color.White, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Quick Actions
+                    item {
+                        Text("Acciones Rápidas", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Surface(
+                                onClick = { showSinpeTransferDialog = true },
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(Icons.Default.SendToMobile, contentDescription = null, tint = bankAccentColor, modifier = Modifier.size(28.dp))
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text("SINPE Móvil", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+
+                            Surface(
+                                onClick = { Toast.makeText(context, "Transferencia entre cuentas realizada", Toast.LENGTH_SHORT).show() },
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = bankPrimaryColor, modifier = Modifier.size(28.dp))
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text("Transferir", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+
+                            Surface(
+                                onClick = { Toast.makeText(context, "Módulo de pago de servicios", Toast.LENGTH_SHORT).show() },
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text("Servicios", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    // Recent Transactions
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Movimientos Recientes", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            TextButton(onClick = {}) { Text("Ver todos") }
+                        }
+                    }
+
+                    items(transactions, key = { it.id }) { item ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 1.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (item.isCredit) bankAccentColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.errorContainer,
+                                        modifier = Modifier.size(38.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = if (item.isCredit) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                                contentDescription = null,
+                                                tint = if (item.isCredit) bankAccentColor else MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    Column {
+                                        Text(item.description, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                        Text(item.date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+
+                                Text(
+                                    text = item.amount,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = if (item.isCredit) bankAccentColor else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedButton(
+                            onClick = { isLoggedIn = false },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Logout, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Cerrar Sesión de ${profile.name}")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // SINPE Móvil Transfer Dialog
+    if (showSinpeTransferDialog) {
+        var phoneTarget by remember { mutableStateOf("") }
+        var transferAmount by remember { mutableStateOf("") }
+        var transferDetail by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showSinpeTransferDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.SendToMobile, contentDescription = null, tint = bankAccentColor)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Transferencia SINPE Móvil", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = phoneTarget,
+                        onValueChange = { phoneTarget = it },
+                        label = { Text("Teléfono de Destino") },
+                        placeholder = { Text("8888 8888") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = transferAmount,
+                        onValueChange = { transferAmount = it },
+                        label = { Text("Monto a Enviar (₡)") },
+                        placeholder = { Text("10000") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = transferDetail,
+                        onValueChange = { transferDetail = it },
+                        label = { Text("Detalle o Pase") },
+                        placeholder = { Text("Pago almuerzo / cuota") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val amountVal = transferAmount.toDoubleOrNull() ?: 10000.0
+                        colonesBalance -= amountVal
+                        transactions.add(
+                            0,
+                            BankingTransaction(
+                                description = "SINPE Móvil a $phoneTarget (${transferDetail.ifBlank { "Pase" }})",
+                                amount = "- ₡ ${"%,.0f".format(Locale.US, amountVal)}",
+                                date = "Hoy",
+                                isCredit = false
+                            )
+                        )
+                        showSinpeTransferDialog = false
+                        Toast.makeText(context, "¡Transferencia SINPE enviada con éxito!", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = bankAccentColor)
+                ) {
+                    Text("Enviar Dinero")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSinpeTransferDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+}
+
+/**
+ * General Utility Sandbox for other generic installed APKs
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NativeGeneralUtilitySandbox(
+    profile: ProfileEntity,
+    onCloseSandbox: () -> Unit
+) {
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -2595,8 +3194,10 @@ fun NativeGenericAppSandbox(
                 .padding(padding)
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Spacer(modifier = Modifier.height(8.dp))
+
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer,
@@ -2612,15 +3213,11 @@ fun NativeGenericAppSandbox(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
             Text(
-                text = "Contenedor Nativo Ejecutándose",
+                text = "Contenedor de ${profile.name}",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-
-            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
                 text = "Paquete: ${profile.packageName ?: "com.app.sandbox"}\nInstancia aislada con almacenamiento SQLite, caché y permisos separados.",
@@ -2629,16 +3226,53 @@ fun NativeGenericAppSandbox(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Button(
+            // Primary Button: Launch on Device
+            if (!profile.packageName.isNullOrBlank()) {
+                Button(
+                    onClick = {
+                        val launched = SystemDualAppsLauncher.launchNativeApp(context, profile.packageName)
+                        if (!launched) {
+                            Toast.makeText(context, "No se pudo abrir directamente. Abre los ajustes de Dual Apps.", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                ) {
+                    Icon(Icons.Default.Launch, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("ABRIR APP EN EL TELÉFONO", fontWeight = FontWeight.Bold)
+                }
+            }
+
+            // Secondary: System Dual Apps settings
+            OutlinedButton(
                 onClick = {
-                    Toast.makeText(context, "Entorno de ${profile.name} sincronizado", Toast.LENGTH_SHORT).show()
+                    SystemDualAppsLauncher.openDeviceDualAppSettings(context)
                 },
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Sincronizar Espacio de Aplicación")
+                Icon(Icons.Default.SettingsSuggest, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Ajustes de Apps Duales del Sistema (Xiaomi/Samsung)")
+            }
+
+            OutlinedButton(
+                onClick = {
+                    Toast.makeText(context, "Caché de ${profile.name} limpiado exitosamente", Toast.LENGTH_SHORT).show()
+                },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.CleaningServices, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Limpiar Caché de la Cuenta Aislada")
             }
         }
     }
 }
+
