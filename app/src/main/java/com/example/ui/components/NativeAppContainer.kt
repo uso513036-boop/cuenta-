@@ -3,6 +3,7 @@ package com.example.ui.components
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,7 +22,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -66,6 +71,546 @@ data class WhatsAppMessage(
     val mediaType: String? = null // "AUDIO", "IMAGE", "DOCUMENT"
 )
 
+data class AppSplashInfo(
+    val bg: Color,
+    val iconColor: Color,
+    val title: String,
+    val subtitle: String,
+    val footer: String
+)
+
+/**
+ * Stage 1: Iconic Parallel Space Virtual Engine Boot Screen
+ * Features the signature dual-orbit glowing rings, 64-bit virtualization progress,
+ * storage partition mounting, and sandbox isolation diagnostics.
+ */
+@Composable
+fun ParallelSpaceBootScreen(
+    profile: ProfileEntity,
+    onBootFinished: () -> Unit
+) {
+    val pkg = profile.packageName?.lowercase() ?: profile.appName.lowercase()
+    val name = profile.name.lowercase()
+
+    val infiniteTransition = rememberInfiniteTransition(label = "parallel_space_rings")
+    val ringRotation1 by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "ring_rot_1"
+    )
+    val ringRotation2 by infiniteTransition.animateFloat(
+        initialValue = 360f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "ring_rot_2"
+    )
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_scale"
+    )
+
+    var progress by remember { mutableFloatStateOf(0f) }
+    var statusStage by remember { mutableIntStateOf(1) }
+
+    val iconVector = remember(pkg, name) {
+        when {
+            pkg.contains("whatsapp") || name.contains("whatsapp") -> Icons.Default.Chat
+            pkg.contains("instagram") || name.contains("instagram") -> Icons.Default.CameraAlt
+            pkg.contains("imvu") || name.contains("imvu") -> Icons.Default.AccessibilityNew
+            pkg.contains("telegram") || name.contains("telegram") -> Icons.Default.Send
+            pkg.contains("banco") || pkg.contains("bcr") || pkg.contains("popular") || pkg.contains("bac") || name.contains("banco") -> Icons.Default.AccountBalance
+            pkg.contains("tiktok") || name.contains("tiktok") -> Icons.Default.MusicVideo
+            pkg.contains("facebook") || name.contains("facebook") -> Icons.Default.ThumbUp
+            pkg.contains("roblox") || name.contains("roblox") -> Icons.Default.Gamepad
+            else -> Icons.Default.Android
+        }
+    }
+
+    val iconAccentColor = remember(pkg, name) {
+        when {
+            pkg.contains("whatsapp") || name.contains("whatsapp") -> Color(0xFF00A884)
+            pkg.contains("instagram") || name.contains("instagram") -> Color(0xFFE1306C)
+            pkg.contains("imvu") || name.contains("imvu") -> Color(0xFFEC4899)
+            pkg.contains("telegram") || name.contains("telegram") -> Color(0xFF2AABEE)
+            pkg.contains("banco") || pkg.contains("bcr") || pkg.contains("popular") || pkg.contains("bac") || name.contains("banco") -> Color(0xFF00A859)
+            pkg.contains("tiktok") || name.contains("tiktok") -> Color(0xFFEE1D52)
+            pkg.contains("facebook") || name.contains("facebook") -> Color(0xFF1877F2)
+            pkg.contains("roblox") || name.contains("roblox") -> Color(0xFFE2231A)
+            else -> Color(0xFF6366F1)
+        }
+    }
+
+    LaunchedEffect(profile.id) {
+        val startTime = System.currentTimeMillis()
+        val duration = 1350L
+        while (System.currentTimeMillis() - startTime < duration) {
+            delay(35)
+            val p = ((System.currentTimeMillis() - startTime).toFloat() / duration).coerceIn(0f, 1f)
+            progress = p
+            statusStage = when {
+                p < 0.28f -> 1
+                p < 0.62f -> 2
+                p < 0.88f -> 3
+                else -> 4
+            }
+        }
+        progress = 1f
+        delay(80)
+        onBootFinished()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFF161F33),
+                        Color(0xFF0B0F19),
+                        Color(0xFF06080D)
+                    ),
+                    radius = 1200f
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+        ) {
+            // Parallel Space Engine Badge
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF00E5FF).copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.35f)),
+                modifier = Modifier.padding(bottom = 32.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = Color(0xFF00E5FF),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "PARALLEL SPACE • 64-BIT VIRTUAL ENGINE",
+                        color = Color(0xFF00E5FF),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                }
+            }
+
+            // Dual Orbital Rings with App Icon in Center
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(170.dp)
+            ) {
+                // Outer Cyan Orbit Ring
+                Box(
+                    modifier = Modifier
+                        .size(160.dp)
+                        .rotate(ringRotation1)
+                        .border(
+                            width = 2.5.dp,
+                            brush = Brush.sweepGradient(
+                                listOf(
+                                    Color(0xFF00E5FF),
+                                    Color.Transparent,
+                                    Color(0xFF8B5CF6),
+                                    Color.Transparent,
+                                    Color(0xFF00E5FF)
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                )
+
+                // Inner Magenta/Purple Orbit Ring
+                Box(
+                    modifier = Modifier
+                        .size(130.dp)
+                        .rotate(ringRotation2)
+                        .border(
+                            width = 2.dp,
+                            brush = Brush.sweepGradient(
+                                listOf(
+                                    Color(0xFFEC4899),
+                                    Color.Transparent,
+                                    Color(0xFF00E5FF),
+                                    Color.Transparent,
+                                    Color(0xFFEC4899)
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                )
+
+                // Glowing Central App Icon Container
+                Surface(
+                    shape = CircleShape,
+                    color = iconAccentColor.copy(alpha = 0.22f),
+                    border = BorderStroke(2.dp, iconAccentColor.copy(alpha = 0.6f)),
+                    modifier = Modifier
+                        .size(90.dp)
+                        .scale(pulseScale)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = iconVector,
+                            contentDescription = profile.name,
+                            tint = Color.White,
+                            modifier = Modifier.size(46.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // App Name & Boot Status
+            Text(
+                text = "Iniciando ${profile.name}...",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                letterSpacing = 0.3.sp
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Entorno Aislado e Independiente (Clon #${profile.id})",
+                fontSize = 12.sp,
+                color = Color.White.copy(alpha = 0.6f)
+            )
+
+            Spacer(modifier = Modifier.height(30.dp))
+
+            // Diagnostic Terminal Status Line
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color.Black.copy(alpha = 0.45f),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = ">",
+                        color = Color(0xFF00E5FF),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text(
+                        text = when (statusStage) {
+                            1 -> "⚡ [1/3] Inicializando Sandbox virtual (UID: 10${100 + (profile.id % 899)})..."
+                            2 -> "📁 [2/3] Montando almacenamiento independiente /data/user/0/..."
+                            3 -> "🛡️ [3/3] Configurando Intent Interceptor y memoria protegida..."
+                            else -> "🚀 [OK] Lanzando proceso virgen de ${profile.name}..."
+                        },
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Progress Bar & Percentage
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Cargando motor...",
+                        fontSize = 11.sp,
+                        color = Color.White.copy(alpha = 0.5f)
+                    )
+                    Text(
+                        text = "${(progress * 100).toInt()}%",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF00E5FF)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
+                    color = Color(0xFF00E5FF),
+                    trackColor = Color.White.copy(alpha = 0.12f)
+                )
+            }
+        }
+
+        // Bottom Footer
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "PARALLEL DUAL-SPACE VIRTUALIZATION",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White.copy(alpha = 0.4f),
+                letterSpacing = 1.2.sp
+            )
+        }
+    }
+}
+
+/**
+ * Stage 2: Authentic Official App Splash Screen
+ * Exact splash screen representation of the requested app with official branding,
+ * colors, typography and company footer (from Meta, Telegram LLC, IMVU Inc., etc.)
+ */
+@Composable
+fun AppSplashScreen(
+    profile: ProfileEntity,
+    onSplashFinished: () -> Unit
+) {
+    val pkg = profile.packageName?.lowercase() ?: ""
+    val name = profile.name.lowercase()
+
+    val splashInfo = remember(pkg, name) {
+        when {
+            pkg.contains("whatsapp") || name.contains("whatsapp") -> {
+                AppSplashInfo(
+                    bg = Color(0xFF121B22),
+                    iconColor = Color(0xFF00A884),
+                    title = "WhatsApp",
+                    subtitle = "Mensajería privada e independiente",
+                    footer = "from Meta"
+                )
+            }
+            pkg.contains("instagram") || name.contains("instagram") -> {
+                AppSplashInfo(
+                    bg = Color(0xFF0D0D0D),
+                    iconColor = Color(0xFFE1306C),
+                    title = "Instagram",
+                    subtitle = "Comparte lo que te gusta",
+                    footer = "from Meta"
+                )
+            }
+            pkg.contains("imvu") || name.contains("imvu") -> {
+                AppSplashInfo(
+                    bg = Color(0xFF150D2A),
+                    iconColor = Color(0xFFEC4899),
+                    title = "IMVU 3D",
+                    subtitle = "Crea tu nuevo Avatar y conéctate",
+                    footer = "from IMVU Inc."
+                )
+            }
+            pkg.contains("telegram") || name.contains("telegram") -> {
+                AppSplashInfo(
+                    bg = Color(0xFF17212B),
+                    iconColor = Color(0xFF2AABEE),
+                    title = "Telegram",
+                    subtitle = "Mensajería rápida, segura y aislada",
+                    footer = "from Telegram LLC"
+                )
+            }
+            pkg.contains("banco") || pkg.contains("bcr") || pkg.contains("popular") || pkg.contains("bac") || name.contains("banco") -> {
+                AppSplashInfo(
+                    bg = Color(0xFF0B192C),
+                    iconColor = Color(0xFF00A859),
+                    title = profile.name,
+                    subtitle = "Banca Móvil • Conexión Segura Cifrada",
+                    footer = "Certificado SSL / AES-256 Aislado"
+                )
+            }
+            pkg.contains("tiktok") || name.contains("tiktok") -> {
+                AppSplashInfo(
+                    bg = Color(0xFF010101),
+                    iconColor = Color(0xFFEE1D52),
+                    title = "TikTok",
+                    subtitle = "Videos reales. Gente real.",
+                    footer = "TikTok Inc."
+                )
+            }
+            pkg.contains("facebook") || name.contains("facebook") -> {
+                AppSplashInfo(
+                    bg = Color(0xFF1877F2),
+                    iconColor = Color.White,
+                    title = "Facebook",
+                    subtitle = "Conéctate con tus amigos y el mundo",
+                    footer = "from Meta"
+                )
+            }
+            pkg.contains("roblox") || name.contains("roblox") -> {
+                AppSplashInfo(
+                    bg = Color(0xFF191B1D),
+                    iconColor = Color(0xFFE2231A),
+                    title = "Roblox",
+                    subtitle = "Explora millones de mundos 3D",
+                    footer = "Roblox Corporation"
+                )
+            }
+            else -> {
+                AppSplashInfo(
+                    bg = Color(0xFF13111C),
+                    iconColor = Color(0xFF6366F1),
+                    title = profile.name,
+                    subtitle = "Instalación limpia e independiente",
+                    footer = "MultiSpace Sandbox Engine"
+                )
+            }
+        }
+    }
+
+    var progress by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(profile.id) {
+        val startTime = System.currentTimeMillis()
+        val duration = 1000L
+        while (System.currentTimeMillis() - startTime < duration) {
+            delay(35)
+            progress = ((System.currentTimeMillis() - startTime).toFloat() / duration).coerceIn(0f, 1f)
+        }
+        progress = 1f
+        delay(60)
+        onSplashFinished()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(splashInfo.bg),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(24.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = splashInfo.iconColor.copy(alpha = 0.16f),
+                modifier = Modifier.size(96.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    val iconVector = when {
+                        pkg.contains("whatsapp") || name.contains("whatsapp") -> Icons.Default.Chat
+                        pkg.contains("instagram") || name.contains("instagram") -> Icons.Default.CameraAlt
+                        pkg.contains("imvu") || name.contains("imvu") -> Icons.Default.AccessibilityNew
+                        pkg.contains("telegram") || name.contains("telegram") -> Icons.Default.Send
+                        pkg.contains("banco") || pkg.contains("bcr") || pkg.contains("popular") || pkg.contains("bac") || name.contains("banco") -> Icons.Default.AccountBalance
+                        pkg.contains("tiktok") || name.contains("tiktok") -> Icons.Default.MusicVideo
+                        pkg.contains("facebook") || name.contains("facebook") -> Icons.Default.ThumbUp
+                        pkg.contains("roblox") || name.contains("roblox") -> Icons.Default.Gamepad
+                        else -> Icons.Default.Android
+                    }
+                    Icon(
+                        imageVector = iconVector,
+                        contentDescription = null,
+                        tint = splashInfo.iconColor,
+                        modifier = Modifier.size(50.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(
+                text = splashInfo.title,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                letterSpacing = 0.5.sp
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = splashInfo.subtitle,
+                fontSize = 13.sp,
+                color = Color.White.copy(alpha = 0.65f),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(36.dp))
+
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .width(180.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp)),
+                color = splashInfo.iconColor,
+                trackColor = Color.White.copy(alpha = 0.15f)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Iniciando instalación...",
+                fontSize = 11.sp,
+                color = Color.White.copy(alpha = 0.45f)
+            )
+        }
+
+        // Bottom Brand Footer
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 36.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = splashInfo.footer,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White.copy(alpha = 0.75f),
+                letterSpacing = 1.sp
+            )
+        }
+    }
+}
+
+/**
+ * NativeAppContainer: Controls the 3-Stage Pipeline:
+ * Stage 0: Parallel Space Virtual Boot Screen (Orbital Rings & Virtual Sandbox Diagnostics)
+ * Stage 1: Official App Splash Screen (Meta / Telegram / IMVU / Bank Splash)
+ * Stage 2: Step-by-Step Authentic First-Run Onboarding & Isolated Native UI
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NativeAppContainer(
@@ -76,47 +621,64 @@ fun NativeAppContainer(
 ) {
     val pkg = profile.packageName?.lowercase() ?: profile.appName.lowercase()
     val name = profile.name.lowercase()
+    var launchStage by remember(profile.id) { mutableIntStateOf(0) } // 0: Parallel Space Boot, 1: App Splash, 2: Active App
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        when {
-            pkg.contains("whatsapp") || name.contains("whatsapp") -> {
-                NativeWhatsAppSandbox(
+        when (launchStage) {
+            0 -> {
+                ParallelSpaceBootScreen(
                     profile = profile,
-                    onStatsUpdated = onStatsUpdated,
-                    onCloseSandbox = onCloseSandbox
+                    onBootFinished = { launchStage = 1 }
                 )
             }
-            pkg.contains("imvu") || name.contains("imvu") -> {
-                NativeImvuSandbox(
+            1 -> {
+                AppSplashScreen(
                     profile = profile,
-                    onStatsUpdated = onStatsUpdated,
-                    onCloseSandbox = onCloseSandbox
-                )
-            }
-            pkg.contains("telegram") || name.contains("telegram") -> {
-                NativeTelegramSandbox(
-                    profile = profile,
-                    onStatsUpdated = onStatsUpdated,
-                    onCloseSandbox = onCloseSandbox
-                )
-            }
-            pkg.contains("instagram") || name.contains("instagram") -> {
-                NativeInstagramSandbox(
-                    profile = profile,
-                    onStatsUpdated = onStatsUpdated,
-                    onCloseSandbox = onCloseSandbox
+                    onSplashFinished = { launchStage = 2 }
                 )
             }
             else -> {
-                NativeGenericAppSandbox(
-                    profile = profile,
-                    onStatsUpdated = onStatsUpdated,
-                    onCloseSandbox = onCloseSandbox
-                )
+                when {
+                    pkg.contains("whatsapp") || name.contains("whatsapp") -> {
+                        NativeWhatsAppSandbox(
+                            profile = profile,
+                            onStatsUpdated = onStatsUpdated,
+                            onCloseSandbox = onCloseSandbox
+                        )
+                    }
+                    pkg.contains("imvu") || name.contains("imvu") -> {
+                        NativeImvuSandbox(
+                            profile = profile,
+                            onStatsUpdated = onStatsUpdated,
+                            onCloseSandbox = onCloseSandbox
+                        )
+                    }
+                    pkg.contains("telegram") || name.contains("telegram") -> {
+                        NativeTelegramSandbox(
+                            profile = profile,
+                            onStatsUpdated = onStatsUpdated,
+                            onCloseSandbox = onCloseSandbox
+                        )
+                    }
+                    pkg.contains("instagram") || name.contains("instagram") -> {
+                        NativeInstagramSandbox(
+                            profile = profile,
+                            onStatsUpdated = onStatsUpdated,
+                            onCloseSandbox = onCloseSandbox
+                        )
+                    }
+                    else -> {
+                        NativeGenericAppSandbox(
+                            profile = profile,
+                            onStatsUpdated = onStatsUpdated,
+                            onCloseSandbox = onCloseSandbox
+                        )
+                    }
+                }
             }
         }
     }
@@ -136,9 +698,9 @@ fun NativeWhatsAppSandbox(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    // Persistent Setup State per Account Profile
+    // Persistent Setup State per Account Profile (Starts as clean fresh install)
     var isRegistered by remember(profile.id) {
-        mutableStateOf(profile.dataUsageBytes > 0)
+        mutableStateOf(false)
     }
     var setupStep by remember(profile.id) { mutableIntStateOf(1) } // 1: Welcome, 2: Phone, 3: OTP, 4: Name
     val initialCountry = remember { CountryRepository.detectDeviceCountry(context) }
@@ -148,7 +710,7 @@ fun NativeWhatsAppSandbox(
     var showCountryPicker by remember { mutableStateOf(false) }
     var inputPhoneNumber by remember { mutableStateOf("") }
     var inputOtpCode by remember { mutableStateOf("") }
-    var userDisplayName by remember { mutableStateOf(profile.name) }
+    var userDisplayName by remember { mutableStateOf("") }
     var activeChat by remember { mutableStateOf<WhatsAppChat?>(null) }
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Chats, 1: Novedades, 2: Comunidades, 3: Llamadas
     var showNewChatDialog by remember { mutableStateOf(false) }
@@ -156,50 +718,9 @@ fun NativeWhatsAppSandbox(
     var showSearchField by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // Seeded chats for this WhatsApp account clone
+    // Seeded chats for this WhatsApp account clone (Isolated from scratch)
     val chats = remember(profile.id) {
-        mutableStateListOf(
-            WhatsAppChat(
-                id = "c1",
-                contactName = "Contacto Trabajo (${profile.name})",
-                contactPhone = "+34 612 345 678",
-                avatarColor = 0xFF10B981,
-                lastMessage = "Perfecto, esta cuenta está completamente aislada de la principal.",
-                timestamp = "10:42",
-                unreadCount = 1,
-                isOnline = true,
-                messages = mutableListOf(
-                    WhatsAppMessage(text = "¡Hola! ¿Este es tu WhatsApp secundario?", isOutgoing = false, timestamp = "10:40"),
-                    WhatsAppMessage(text = "Sí, funcionando en el contenedor MultiSpace independiente.", isOutgoing = true, timestamp = "10:41"),
-                    WhatsAppMessage(text = "Perfecto, esta cuenta está completamente aislada de la principal.", isOutgoing = false, timestamp = "10:42")
-                )
-            ),
-            WhatsAppChat(
-                id = "c2",
-                contactName = "Equipo de Proyectos",
-                contactPhone = "+34 699 887 766",
-                avatarColor = 0xFF3B82F6,
-                lastMessage = "Reunión programada para las 16:00.",
-                timestamp = "Ayer",
-                unreadCount = 0,
-                messages = mutableListOf(
-                    WhatsAppMessage(text = "Enviados los archivos de la propuesta.", isOutgoing = true, timestamp = "Ayer 18:20"),
-                    WhatsAppMessage(text = "Reunión programada para las 16:00.", isOutgoing = false, timestamp = "Ayer 18:22")
-                )
-            ),
-            WhatsAppChat(
-                id = "c3",
-                contactName = "Soporte MultiSpace",
-                contactPhone = "+1 800 555 0199",
-                avatarColor = 0xFF8B5CF6,
-                lastMessage = "🔒 Contenedor cifrado AES-256 activo para este número.",
-                timestamp = "Lunes",
-                unreadCount = 0,
-                messages = mutableListOf(
-                    WhatsAppMessage(text = "🔒 Contenedor cifrado AES-256 activo para este número.", isOutgoing = false, timestamp = "Lunes 09:00")
-                )
-            )
-        )
+        mutableStateListOf<WhatsAppChat>()
     }
 
     // Color Palette: WhatsApp Dark Green Theme
@@ -1297,6 +1818,13 @@ fun NativeImvuSandbox(
     onCloseSandbox: () -> Unit
 ) {
     val context = LocalContext.current
+    var isLoggedIn by remember(profile.id) { mutableStateOf(false) }
+    var isRegisterMode by remember { mutableStateOf(false) }
+    var inputUsername by remember { mutableStateOf("") }
+    var inputPassword by remember { mutableStateOf("") }
+    var inputEmail by remember { mutableStateOf("") }
+    var selectedStarterStyle by remember { mutableStateOf("Casual Streetwear") }
+
     var selectedImvuTab by remember { mutableIntStateOf(0) } // 0: Avatar 3D, 1: Salas 3D, 2: Feed, 3: Tienda, 4: Escudo
     var avatarOutfit by remember { mutableStateOf("Casual Streetwear") }
     var creditsBalance by remember { mutableIntStateOf(4500) }
@@ -1306,7 +1834,7 @@ fun NativeImvuSandbox(
     val blockedCount by SandboxIntentInterceptor.blockedCount.collectAsState()
     val interceptedEvents by SandboxIntentInterceptor.interceptionEvents.collectAsState()
 
-    val roomMessages = remember {
+    val roomMessages = remember(profile.id) {
         mutableStateListOf(
             "Avatar_Luna: ¡Hola a todos en la sala 3D!",
             "Cyber_Boy: ¿Qué onda? Bienvenidos al salón VIP.",
@@ -1314,11 +1842,237 @@ fun NativeImvuSandbox(
         )
     }
 
-    LaunchedEffect(Unit) {
-        onStatsUpdated(18, 1024L * 1024L * 52) // IMVU 3D isolated cache
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            onStatsUpdated(18, 1024L * 1024L * 52) // IMVU 3D isolated cache
+        }
     }
 
-    Scaffold(
+    if (!isLoggedIn) {
+        // Clean IMVU 3D Welcome & Login / Registration Screen
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text("IMVU 3D Móvil", fontWeight = FontWeight.Bold)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onCloseSandbox) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        }
+                    }
+                )
+            },
+            bottomBar = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (!isRegisterMode) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("¿Eres nuevo en IMVU? ", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = "Crear nuevo Avatar 3D",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFEC4899),
+                                modifier = Modifier.clickable { isRegisterMode = true }
+                            )
+                        }
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("¿Ya tienes una cuenta IMVU? ", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = "Inicia sesión",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFEC4899),
+                                modifier = Modifier.clickable { isRegisterMode = false }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("IMVU Inc. • Instancia Aislada MultiSpace", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                }
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 24.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // IMVU 3D Badge & Title
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFEC4899).copy(alpha = 0.15f),
+                    modifier = Modifier.size(80.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.AccessibilityNew,
+                            contentDescription = "IMVU",
+                            tint = Color(0xFFEC4899),
+                            modifier = Modifier.size(44.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "IMVU 3D Avatar",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.5).sp
+                )
+
+                Text(
+                    text = if (isRegisterMode) "Crear Avatar 3D para ${profile.name}" else "Instalación limpia e independiente",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (isRegisterMode) {
+                    Text(
+                        text = "Elige tu estilo inicial de Avatar:",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        modifier = Modifier.align(Alignment.Start)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("Casual", "Cyberpunk", "Anime 3D", "Glamour").forEach { style ->
+                            FilterChip(
+                                selected = selectedStarterStyle == style,
+                                onClick = { selectedStarterStyle = style },
+                                label = { Text(style, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    OutlinedTextField(
+                        value = inputUsername,
+                        onValueChange = { inputUsername = it },
+                        label = { Text("Nombre del Avatar / Usuario") },
+                        placeholder = { Text("Avatar_${profile.name.replace(" ", "_")}") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = inputEmail,
+                        onValueChange = { inputEmail = it },
+                        label = { Text("Correo Electrónico") },
+                        placeholder = { Text("avatar@correo.com") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = inputPassword,
+                        onValueChange = { inputPassword = it },
+                        label = { Text("Contraseña") },
+                        placeholder = { Text("••••••••") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Button(
+                        onClick = {
+                            avatarOutfit = selectedStarterStyle
+                            isLoggedIn = true
+                            Toast.makeText(context, "¡Avatar 3D creado con éxito!", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("CREAR Y ENTRAR AL MUNDO 3D", fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = inputUsername,
+                        onValueChange = { inputUsername = it },
+                        label = { Text("Nombre de Avatar o Correo") },
+                        placeholder = { Text("usuario o correo") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = inputPassword,
+                        onValueChange = { inputPassword = it },
+                        label = { Text("Contraseña") },
+                        placeholder = { Text("••••••••") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Button(
+                        onClick = {
+                            isLoggedIn = true
+                            Toast.makeText(context, "Sesión iniciada en ${profile.name}", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Icon(Icons.Default.Login, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("INICIAR SESIÓN", fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    OutlinedButton(
+                        onClick = { isRegisterMode = true },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().height(46.dp)
+                    ) {
+                        Text("Crear nuevo Avatar 3D", color = Color(0xFFEC4899), fontWeight = FontWeight.SemiBold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    } else {
+        Scaffold(
         topBar = {
             TopAppBar(
                 title = {
@@ -1694,6 +2448,7 @@ fun NativeImvuSandbox(
         }
     }
 }
+}
 
 /* ==========================================================================
    3. NATIVE TELEGRAM SANDBOX (Full Native UI, Registration & Cloud Sandbox)
@@ -1730,9 +2485,9 @@ fun NativeTelegramSandbox(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    // Persistent Setup State per Account Profile
+    // Persistent Setup State per Account Profile (Clean fresh install)
     var isRegistered by remember(profile.id) {
-        mutableStateOf(profile.dataUsageBytes > 0)
+        mutableStateOf(false)
     }
     var setupStep by remember(profile.id) { mutableIntStateOf(1) } // 1: Welcome, 2: Phone, 3: OTP, 4: Name
     val initialCountry = remember { CountryRepository.detectDeviceCountry(context) }
@@ -1742,7 +2497,7 @@ fun NativeTelegramSandbox(
     var showCountryPicker by remember { mutableStateOf(false) }
     var inputPhoneNumber by remember { mutableStateOf("") }
     var inputOtpCode by remember { mutableStateOf("") }
-    var userFirstName by remember { mutableStateOf(profile.name) }
+    var userFirstName by remember { mutableStateOf("") }
     var userLastName by remember { mutableStateOf("") }
     var syncContacts by remember { mutableStateOf(true) }
 
@@ -1752,49 +2507,9 @@ fun NativeTelegramSandbox(
     var showSearchField by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // Seeded Telegram chats
+    // Seeded Telegram chats (Isolated from scratch)
     val chats = remember(profile.id) {
-        mutableStateListOf(
-            TelegramChat(
-                id = "tg_saved",
-                title = "Mensajes Guardados",
-                avatarColor = 0xFF2AABEE,
-                lastMessage = "Almacenamiento en la nube aislado de esta cuenta.",
-                timestamp = "12:15",
-                unreadCount = 0,
-                isOnline = true,
-                messages = mutableListOf(
-                    TelegramChatMessage(text = "¡Bienvenido a tu nube personal en Telegram!", isOutgoing = false, timestamp = "12:10"),
-                    TelegramChatMessage(text = "Aquí puedes guardar notas, enlaces y archivos de forma privada.", isOutgoing = false, timestamp = "12:12"),
-                    TelegramChatMessage(text = "Almacenamiento en la nube aislado de esta cuenta.", isOutgoing = true, timestamp = "12:15")
-                )
-            ),
-            TelegramChat(
-                id = "tg_news",
-                title = "Telegram Noticias Oficial",
-                isChannel = true,
-                avatarColor = 0xFF3390EC,
-                lastMessage = "MultiSpace Sandbox ha activado la aceleración de hardware para cuentas clonadas.",
-                timestamp = "11:30",
-                unreadCount = 2,
-                messages = mutableListOf(
-                    TelegramChatMessage(text = "MultiSpace Sandbox ha activado la aceleración de hardware para cuentas clonadas.", isOutgoing = false, timestamp = "11:30")
-                )
-            ),
-            TelegramChat(
-                id = "tg_dev",
-                title = "Grupo de Soporte MultiSpace",
-                isGroup = true,
-                avatarColor = 0xFF8E44AD,
-                lastMessage = "El contenedor está 100% independiente.",
-                timestamp = "Ayer",
-                unreadCount = 0,
-                messages = mutableListOf(
-                    TelegramChatMessage(text = "Contenedor independiente inicializado correctamente.", isOutgoing = false, timestamp = "Ayer 15:20"),
-                    TelegramChatMessage(text = "El contenedor está 100% independiente.", isOutgoing = true, timestamp = "Ayer 15:22")
-                )
-            )
-        )
+        mutableStateListOf<TelegramChat>()
     }
 
     val tgBlue = Color(0xFF2AABEE)
@@ -2683,43 +3398,492 @@ fun NativeInstagramSandbox(
     onStatsUpdated: (cookies: Int, bytes: Long) -> Unit,
     onCloseSandbox: () -> Unit
 ) {
-    LaunchedEffect(Unit) {
-        onStatsUpdated(15, 1024L * 1024L * 30)
+    val context = LocalContext.current
+    var isLoggedIn by remember(profile.id) { mutableStateOf(false) }
+    var isRegisterMode by remember { mutableStateOf(false) }
+    var inputUsername by remember { mutableStateOf("") }
+    var inputPassword by remember { mutableStateOf("") }
+    var inputFullName by remember { mutableStateOf("") }
+    var inputEmailOrPhone by remember { mutableStateOf("") }
+    var selectedInstagramTab by remember { mutableIntStateOf(0) } // 0: Feed, 1: Buscar, 2: Reels, 3: Perfil
+    var likedPosts by remember { mutableStateOf(setOf<Int>()) }
+
+    val instagramGradient: Brush = remember {
+        Brush.linearGradient(
+            listOf(Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCB045))
+        )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Instagram • ${profile.name}", fontWeight = FontWeight.Bold) },
-                actions = {
-                    IconButton(onClick = {}) { Icon(Icons.Default.FavoriteBorder, contentDescription = null) }
-                    IconButton(onClick = {}) { Icon(Icons.Default.Send, contentDescription = null) }
-                }
-            )
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            onStatsUpdated(15, 1024L * 1024L * 30)
         }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-        ) {
-            Text("Historias", fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(listOf("Tu historia", "alex_photo", "music_vibes", "design_hub")) { story ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFE1306C)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Person, contentDescription = null, tint = Color.White)
+    }
+
+    if (!isLoggedIn) {
+        // Authentic Instagram Login & Registration Screen (Clean & Isolated)
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {},
+                    navigationIcon = {
+                        IconButton(onClick = onCloseSandbox) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(story, fontSize = 11.sp)
+                    }
+                )
+            },
+            bottomBar = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(14.dp))
+                    if (!isRegisterMode) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("¿No tienes una cuenta? ", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = "Regístrate.",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0095F6),
+                                modifier = Modifier.clickable { isRegisterMode = true }
+                            )
+                        }
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("¿Ya tienes una cuenta? ", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = "Inicia sesión.",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0095F6),
+                                modifier = Modifier.clickable { isRegisterMode = false }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("from Meta", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                }
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 28.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Instagram Camera Icon & Styled Text Logo
+                Box(
+                    modifier = Modifier
+                        .size(76.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(instagramGradient),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = "Instagram",
+                        tint = Color.White,
+                        modifier = Modifier.size(42.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Instagram",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.5).sp
+                )
+
+                Text(
+                    text = if (isRegisterMode) "Crear cuenta para ${profile.name}" else "Instancia limpia e independiente",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(28.dp))
+
+                if (isRegisterMode) {
+                    // Registration Flow
+                    OutlinedTextField(
+                        value = inputEmailOrPhone,
+                        onValueChange = { inputEmailOrPhone = it },
+                        label = { Text("Número de móvil o correo") },
+                        placeholder = { Text("ejemplo@correo.com") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = inputFullName,
+                        onValueChange = { inputFullName = it },
+                        label = { Text("Nombre completo") },
+                        placeholder = { Text("Tu Nombre") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = inputUsername,
+                        onValueChange = { inputUsername = it },
+                        label = { Text("Nombre de usuario") },
+                        placeholder = { Text("usuario_cuenta2") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = inputPassword,
+                        onValueChange = { inputPassword = it },
+                        label = { Text("Contraseña") },
+                        placeholder = { Text("••••••••") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Button(
+                        onClick = {
+                            if (inputUsername.isBlank()) {
+                                inputUsername = "usuario_${profile.name.lowercase().replace(" ", "_")}"
+                            }
+                            isLoggedIn = true
+                            Toast.makeText(context, "¡Cuenta creada exitosamente en ${profile.name}!", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0095F6)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth().height(46.dp)
+                    ) {
+                        Text("Registrarte", fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    // Clean Login Flow with Empty Inputs
+                    OutlinedTextField(
+                        value = inputUsername,
+                        onValueChange = { inputUsername = it },
+                        label = { Text("Teléfono, usuario o correo electrónico") },
+                        placeholder = { Text("usuario o correo") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = inputPassword,
+                        onValueChange = { inputPassword = it },
+                        label = { Text("Contraseña") },
+                        placeholder = { Text("••••••••") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = {
+                            if (inputUsername.isBlank()) {
+                                inputUsername = profile.name
+                            }
+                            isLoggedIn = true
+                            Toast.makeText(context, "Sesión iniciada en ${profile.name}", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0095F6)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth().height(46.dp)
+                    ) {
+                        Text("Iniciar sesión", fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "¿Olvidaste tus datos de inicio de sesión?",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clickable {
+                            Toast.makeText(context, "Ayuda para restablecer contraseña en sandbox aislado", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                        Text(
+                            text = "  O  ",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    OutlinedButton(
+                        onClick = { isRegisterMode = true },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth().height(44.dp)
+                    ) {
+                        Text("Crear cuenta nueva", fontWeight = FontWeight.SemiBold, color = Color(0xFF0095F6))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    } else {
+        // Authenticated Instagram Screen with Isolated Feed & Stories
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text("Instagram", fontWeight = FontWeight.Bold, fontSize = 22.sp, letterSpacing = (-0.5).sp)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onCloseSandbox) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = {
+                            Toast.makeText(context, "Notificaciones de esta cuenta", Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(Icons.Default.FavoriteBorder, contentDescription = "Me gusta")
+                        }
+                        IconButton(onClick = {
+                            Toast.makeText(context, "Mensajes directos de ${profile.name}", Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(Icons.Default.Send, contentDescription = "Direct")
+                        }
+                        IconButton(onClick = {
+                            isLoggedIn = false
+                            inputUsername = ""
+                            inputPassword = ""
+                            Toast.makeText(context, "Sesión cerrada de ${profile.name}", Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(Icons.Default.Logout, contentDescription = "Cerrar sesión", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                )
+            },
+            bottomBar = {
+                NavigationBar {
+                    NavigationBarItem(
+                        selected = selectedInstagramTab == 0,
+                        onClick = { selectedInstagramTab = 0 },
+                        icon = { Icon(Icons.Default.Home, contentDescription = "Inicio") },
+                        label = { Text("Inicio") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedInstagramTab == 1,
+                        onClick = { selectedInstagramTab = 1 },
+                        icon = { Icon(Icons.Default.Search, contentDescription = "Buscar") },
+                        label = { Text("Buscar") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedInstagramTab == 2,
+                        onClick = { selectedInstagramTab = 2 },
+                        icon = { Icon(Icons.Default.VideoLibrary, contentDescription = "Reels") },
+                        label = { Text("Reels") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedInstagramTab == 3,
+                        onClick = { selectedInstagramTab = 3 },
+                        icon = { Icon(Icons.Default.AccountCircle, contentDescription = "Perfil") },
+                        label = { Text("Perfil") }
+                    )
+                }
+            }
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                // Stories Row
+                item {
+                    LazyRow(
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(62.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Tu historia", fontSize = 11.sp)
+                            }
+                        }
+
+                        items(listOf("alex_travel", "creativestudio", "pixel_world", "sunset_lovers", "tech_daily")) { user ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(62.dp)
+                                        .clip(CircleShape)
+                                        .background(instagramGradient)
+                                        .padding(2.5.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.surface),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(user, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+                }
+
+                // Feed Posts for Isolated Account
+                items(
+                    listOf(
+                        Triple(1, "alex_travel", "Explorando nuevos horizontes en el contenedor aislado de MultiSpace 📸✨"),
+                        Triple(2, "creativestudio", "Diseño de interfaz y arquitectura limpia para aplicaciones móviles independientes."),
+                        Triple(3, "pixel_world", "Sesión de fotografía urbana de tarde. ¿Qué les parece el encuadre?")
+                    ),
+                    key = { it.first }
+                ) { post ->
+                    val postId = post.first
+                    val author = post.second
+                    val caption = post.third
+                    val isLiked = likedPosts.contains(postId)
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    ) {
+                        // Post Header
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .background(instagramGradient),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(author, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                            IconButton(onClick = {}) {
+                                Icon(Icons.Default.MoreVert, contentDescription = null)
+                            }
+                        }
+
+                        // Post Image Canvas Placeholder
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(260.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.Image, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(54.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("Foto de @$author", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+
+                        // Actions Row (Like, Comment, Share, Save)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = {
+                                    likedPosts = if (isLiked) likedPosts - postId else likedPosts + postId
+                                }) {
+                                    Icon(
+                                        imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = "Me gusta",
+                                        tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                IconButton(onClick = {}) {
+                                    Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Comentar")
+                                }
+                                IconButton(onClick = {}) {
+                                    Icon(Icons.Default.Send, contentDescription = "Compartir")
+                                }
+                            }
+                            IconButton(onClick = {}) {
+                                Icon(Icons.Default.BookmarkBorder, contentDescription = "Guardar")
+                            }
+                        }
+
+                        // Likes & Caption
+                        Column(modifier = Modifier.padding(horizontal = 14.dp)) {
+                            Text(
+                                text = "${if (isLiked) 143 else 142} Me gusta",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "$author $caption",
+                                fontSize = 13.sp,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
@@ -3010,8 +4174,7 @@ fun NativeBankingSandbox(
 
                                 OutlinedButton(
                                     onClick = {
-                                        identificationNumber = "1-1823-0492"
-                                        password = "••••••••"
+                                        Toast.makeText(context, "Autenticando huella dactilar para ${profile.name}...", Toast.LENGTH_SHORT).show()
                                         isLoggedIn = true
                                     },
                                     shape = RoundedCornerShape(12.dp),
@@ -3019,7 +4182,7 @@ fun NativeBankingSandbox(
                                 ) {
                                     Icon(Icons.Default.Fingerprint, contentDescription = null, tint = bankAccentColor)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Ingreso Rápido con Biometría", color = MaterialTheme.colorScheme.onSurface)
+                                    Text("Ingreso con Huella / Biometría", color = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
                         }
